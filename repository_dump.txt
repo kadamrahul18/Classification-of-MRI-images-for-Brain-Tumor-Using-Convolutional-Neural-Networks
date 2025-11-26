@@ -1,0 +1,647 @@
+File structure:
+- AGENTS.md
+- augment.py
+- bfc.py
+- data_preparation.py
+- train.py
+- unet.py
+
+--- AGENTS.md ---
+# Repository Guidelines
+
+## Project Structure & Module Organization
+- `data_preparation.py`: converts BraTS-style NIfTI volumes to PNG slices, picks 20 largest slices per volume, and splits into `Dataset/train_frames|train_masks|val_frames|val_masks|test_frames|test_masks` (70/20/10).
+- `bfc.py`: optional N4 bias-field correction and normalization via SimpleITK; edit the paths in `main`.
+- `augment.py`: augmentation utilities (`get_augmentation`), `Dataset` loader with one-hot masks, and a Keras `Dataloader`; expects 256x256 grayscale images scaled to 0–1.
+- `unet.py`: U-Net architecture compiled with Adam + categorical crossentropy for 4-class segmentation.
+- `train.py`: interactive training entry point; asks for dataset root and writes logs/checkpoints to hard-coded paths under `/home/rahul/Desktop/project` (update before running).
+
+## Build, Test, and Development Commands
+- `python data_preparation.py` — generate PNG slices and dataset splits; requires a BraTS root containing `*_t1.nii.gz`, `*_t1ce.nii.gz`, `*_t2.nii.gz`, `*_flair.nii.gz`, and `*seg.nii.gz`.
+- `python bfc.py` — run bias correction on a BraTS folder into a preprocessed mirror; adjust `brats_path` and `preprocessed_brats` in `main`.
+- `python train.py` — train the U-Net on prepared data; edit `weights_path`/`logdir_path` to writable locations and ensure `Dataset/*` folders exist.
+- Suggested setup: create a virtualenv/conda env and install dependencies: `pip install tensorflow matplotlib pillow numpy opencv-python albumentations nibabel SimpleITK`.
+
+## Coding Style & Naming Conventions
+- PEP8 with 4-space indentation; snake_case for functions, variables, and filenames.
+- Keep images as single-channel float32 in [0,1]; masks are one-hot with 4 channels (background, non-enhancing, edema, enhancing).
+- Preserve filename patterns (`frame_#####.png`, `mask_#####.png`) and consistent numbering so loaders align frames and masks.
+
+## Testing Guidelines
+- No automated tests yet; sanity-check preprocessing on a small subset and visually inspect paired frames/masks.
+- Before long runs, train for 1 epoch or enable `DisplayCallback` in `train.py` to confirm shapes and outputs.
+- If adding tests, consider unit tests for `Dataset` shape/dtype expectations and smoke tests that instantiate `unet()` and run a tiny batch.
+
+## Commit & Pull Request Guidelines
+- Prefer short, imperative commit messages (e.g., `Refine augmentation pipeline`) that describe the change scope.
+- PRs should summarize dataset location, preprocessing choices (bias correction on/off), and key training hyperparameters; include sample logs or plots when available.
+- Link related issues and call out changes to data paths, augmentation behavior, or model architecture for targeted review.
+
+--- augment.py ---
+import os
+import cv2
+import numpy as np
+import matplotlib.pyplot as plt
+import tensorflow as tf
+from tensorflow.keras.utils import to_categorical
+#from sklearn.preprocessing import LabelEncoder
+import albumentations as A
+
+
+
+# define augmentation methods, p = probability
+def get_augmentation():
+    transform = [
+        A.OneOf([
+
+        A.HorizontalFlip(p=0.5),
+        A.VerticalFlip(p=0.5),
+        A.Rotate(limit=(0,90), p=0.5),
+        A.ShiftScaleRotate(shift_limit = (0,0.1), rotate_limit = (0,0), scale_limit = (0,0), p=0.5), #only shift
+        A.Transpose(p=0.5)
+
+        ],p=1,
+        )
+    ]
+    return A.Compose(transform)
+
+'''
+def mask_image_encoding(data):
+    mask_encoder = LabelEncoder()
+    h, w = data.shape
+    data_reshaped = data.reshape(-1, 1) #reshaping mask image 2d array to 1d vector for labelEncoder() to work
+    data_reshaped_encoded = mask_encoder.fit_transform(data_reshaped)
+    data_encoded_original_shape = data_reshaped_encoded.reshape(h, w) #reshaping back the mask image to original 2d array
+    return data_encoded_original_shape
+'''
+# classes for data loading and preprocessing
+class Dataset:
+
+    CLASSES = ['background','non-enhancing','edema','enhancing']
+
+    def __init__(
+            self,
+            images_dir,
+            masks_dir,
+            classes=None,
+            augmentation=None,
+    ):
+        self.image_ids = sorted(os.listdir(images_dir))
+        self.mask_ids = sorted(os.listdir(masks_dir))
+        self.images_fps = [os.path.join(images_dir, image_id) for image_id in self.image_ids]
+        self.masks_fps = [os.path.join(masks_dir, image_id) for image_id in self.mask_ids]
+
+        # convert str names to class values on masks
+        self.class_values = [self.CLASSES.index(cls.lower()) for cls in classes]
+
+        self.augmentation = augmentation
+
+    def __getitem__(self, i):
+
+        # read data
+        image = cv2.imread(self.images_fps[i], 0) # 0 = grayscale
+        mask = cv2.imread(self.masks_fps[i], 0)
+        mask = np.where(mask == 4, 3, mask) # replace all elements with value 4 to 3
+        image = cv2.resize(image, (256,256), interpolation = cv2.INTER_NEAREST)
+        mask = cv2.resize(mask, (256,256), interpolation = cv2.INTER_NEAREST)
+
+        #one-hot encoding
+        mask = to_categorical(mask, num_classes=4)
+
+        # apply augmentations
+        if self.augmentation:
+            sample = self.augmentation(image=image, mask=mask)
+            image, mask = sample['image'], sample['mask']
+
+
+        image = image/255.0 #normalize input image
+        image = np.expand_dims(image, axis=-1)
+        return image, mask
+
+    def __len__(self):
+        return len(self.image_ids)
+
+
+class Dataloader(tf.keras.utils.Sequence):
+
+    def __init__(self, dataset, batch_size=1, shuffle=False):
+        self.dataset = dataset
+        self.batch_size = batch_size
+        self.shuffle = shuffle
+        self.indexes = np.arange(len(dataset))
+
+        self.on_epoch_end()
+
+    def __getitem__(self, i):
+
+        # collect batch data
+        start = i * self.batch_size
+        stop = (i + 1) * self.batch_size
+        data = []
+        for j in range(start, stop):
+            data.append(self.dataset[j])
+
+        # transpose list of lists
+        batch = [np.stack(samples, axis=0) for samples in zip(*data)]
+
+        return tuple(batch)
+
+    def __len__(self):
+        """Denotes the number of batches per epoch"""
+        return len(self.indexes) // self.batch_size
+
+    def on_epoch_end(self):
+        """Callback function to shuffle indexes each epoch"""
+        if self.shuffle:
+            self.indexes = np.random.permutation(self.indexes)
+
+--- bfc.py ---
+import numpy as np
+import glob, os
+import itertools
+import random
+import shutil
+import SimpleITK as sitk
+
+config = dict()
+config["modalities"] = ["flair", "t1", "t1ce", "t2"]
+
+def correct_bias(in_path, out_path, image_type=sitk.sitkFloat64):
+    input_image = sitk.ReadImage(in_path, image_type)
+    output_image = sitk.N4BiasFieldCorrection(input_image, input_image > 0)
+    sitk.WriteImage(output_image, out_path)
+    return os.path.abspath(out_path)
+
+def get_image_path(subject_folder, name):
+    file_name = os.path.join(subject_folder, "*" + name + ".nii.gz")
+    return glob.glob(file_name)[0]
+
+
+def normalize_image(in_path, out_path, bias_correction=True):
+    if bias_correction:
+        correct_bias(in_path, out_path)
+    else:
+        shutil.copy(in_path, out_path)
+
+def preprocess_brats_folder(in_folder, out_folder, truth_name='seg', no_bias_correction_modalities=None):
+    for name in config["modalities"]:
+        image_image = get_image_path(in_folder, name)
+        case_ID = os.path.basename(out_folder)
+        out_path = os.path.abspath(os.path.join(out_folder, "%s_%s.nii.gz"%(case_ID, name)))
+        perform_bias_correction = no_bias_correction_modalities and name not in no_bias_correction_modalities
+        normalize_image(image_image, out_path, bias_correction=perform_bias_correction)
+
+    truth_image = get_image_path(in_folder, truth_name)
+    out_path = os.path.abspath(os.path.join(out_folder, "%s_truth.nii.gz"%(case_ID)))
+    shutil.copy(truth_image, out_path)
+
+def preprocess_brats_data(brats_folder, out_folder, overwrite=False, no_bias_correction_modalities=("flair")):
+    for subject_folder in glob.glob(os.path.join(brats_folder, "*", "*")):
+        if os.path.isdir(subject_folder):
+            subject = os.path.basename(subject_folder)
+            new_subject_folder = os.path.join(out_folder, os.path.basename(os.path.dirname(subject_folder)), subject)
+            if not os.path.exists(new_subject_folder) or overwrite:
+                if not os.path.exists(new_subject_folder):
+                    os.makedirs(new_subject_folder)
+                preprocess_brats_folder(subject_folder, new_subject_folder, no_bias_correction_modalities=no_bias_correction_modalities)
+
+def main(brats_path, preprocessed_brats):
+    preprocess_brats_data(brats_path, preprocessed_brats)
+
+if __name__ == "__main__":
+    main(brats_path='/home/rahul/Desktop/brats19/', preprocessed_brats='/home/rahul/Desktop/brats19_Preprocessed/')
+
+--- data_preparation.py ---
+import glob, imageio, shutil, nibabel
+from pathlib import Path
+
+#selecting 20 slices with max file size
+def select_slice(image_array):
+
+    imageSizeList = []
+    totalSlices = image_array.shape[2]
+    tempPath = Path.home() / "temp"
+    Path(tempPath).mkdir(exist_ok = True)
+
+    for slice in range(0, totalSlices) :
+        data = image_array[:, :, slice]
+        imagePath = str(tempPath) + "/" + str(slice+1) + ".png"
+        imageio.imwrite(imagePath, data)
+        imageSizeList.append(Path(imagePath).stat().st_size)
+
+    shutil.rmtree(tempPath)
+    maxSizeList = []
+
+    for i in range(0, 20) :
+        maxSizeList.append(imageSizeList.index(max(imageSizeList))+1)
+        imageSizeList.remove(max(imageSizeList))
+
+    return maxSizeList
+
+
+def niitopng(inputFilePath, outputFolderPath, counter, mode, sliceList):
+
+    if mode == 1:
+        for slice in sliceList :
+            image_array = nibabel.load(inputFilePath).get_data()
+            data = image_array[:, :, slice-1]
+
+            if counter+1 < 10 :
+                image_name = str(outputFolderPath) + "/frame_0000" + str(counter+1) + ".png"
+            elif counter+1 < 100 :
+                image_name = str(outputFolderPath) + "/frame_000" + str(counter+1) + ".png"
+            elif counter+1 < 1000:
+                image_name = str(outputFolderPath) + "/frame_00" + str(counter+1) + ".png"
+            elif counter+1 < 10000:
+                image_name = str(outputFolderPath) + "/frame_0" + str(counter+1) + ".png"
+            else :
+                image_name = str(outputFolderPath) + "/frame_" + str(counter+1) + ".png"
+
+            imageio.imwrite(image_name, data)
+            counter += 1
+
+    if mode == 2 :
+        for slice in sliceList :
+            image_array = nibabel.load(inputFilePath).get_data()
+            data = image_array[:, :, slice-1]
+
+            if counter+1 < 10 :
+                image_name = str(outputFolderPath) + "/mask_0000" + str(counter+1) + ".png"
+            elif counter+1 < 100 :
+                image_name = str(outputFolderPath) + "/mask_000" + str(counter+1) + ".png"
+            elif counter+1 < 1000:
+                image_name = str(outputFolderPath) + "/mask_00" + str(counter+1) + ".png"
+            elif counter+1 < 10000:
+                image_name = str(outputFolderPath) + "/mask_0" + str(counter+1) + ".png"
+            else :
+                image_name = str(outputFolderPath) + "/mask_" + str(counter+1) + ".png"
+
+            imageio.imwrite(image_name, data.astype('uint8'))
+            counter += 1
+
+    if mode == 3 :
+        for slice in sliceList :
+            image_array = nibabel.load(inputFilePath).get_data()
+            data = image_array[:, :, slice-1]
+
+            if counter+1 < 10 :
+                image_name = str(outputFolderPath) + "/val_frame_0000" + str(counter+1) + ".png"
+            elif counter+1 < 100 :
+                image_name = str(outputFolderPath) + "/val_frame_000" + str(counter+1) + ".png"
+            elif counter+1 < 1000:
+                image_name = str(outputFolderPath) + "/val_frame_00" + str(counter+1) + ".png"
+            elif counter+1 < 10000:
+                image_name = str(outputFolderPath) + "/val_frame_0" + str(counter+1) + ".png"
+            else :
+                image_name = str(outputFolderPath) + "/val_frame_" + str(counter+1) + ".png"
+
+            imageio.imwrite(image_name, data)
+            counter += 1
+
+    if mode == 4 :
+        for slice in sliceList :
+            image_array = nibabel.load(inputFilePath).get_data()
+            data = image_array[:, :, slice-1]
+
+            if counter+1 < 10 :
+                image_name = str(outputFolderPath) + "/val_mask_0000" + str(counter+1) + ".png"
+            elif counter+1 < 100 :
+                image_name = str(outputFolderPath) + "/val_mask_000" + str(counter+1) + ".png"
+            elif counter+1 < 1000:
+                image_name = str(outputFolderPath) + "/val_mask_00" + str(counter+1) + ".png"
+            elif counter+1 < 10000:
+                image_name = str(outputFolderPath) + "/val_mask_0" + str(counter+1) + ".png"
+            else :
+                image_name = str(outputFolderPath) + "/val_mask_" + str(counter+1) + ".png"
+
+            imageio.imwrite(image_name, data.astype('uint8'))
+            counter += 1
+
+    if mode == 5 :
+        for slice in sliceList :
+            image_array = nibabel.load(inputFilePath).get_data()
+            data = image_array[:, :, slice-1]
+
+            if counter+1 < 10 :
+                image_name = str(outputFolderPath) + "/test_frame_0000" + str(counter+1) + ".png"
+            elif counter+1 < 100 :
+                image_name = str(outputFolderPath) + "/test_frame_000" + str(counter+1) + ".png"
+            elif counter+1 < 1000:
+                image_name = str(outputFolderPath) + "/test_frame_00" + str(counter+1) + ".png"
+            elif counter+1 < 10000:
+                image_name = str(outputFolderPath) + "/test_frame_0" + str(counter+1) + ".png"
+            else :
+                image_name = str(outputFolderPath) + "/test_frame_" + str(counter+1) + ".png"
+
+            imageio.imwrite(image_name, data)
+            counter += 1
+
+    if mode == 6 :
+        for slice in sliceList :
+            image_array = nibabel.load(inputFilePath).get_data()
+            data = image_array[:, :, slice-1]
+
+            if counter+1 < 10 :
+                image_name = str(outputFolderPath) + "/test_mask_0000" + str(counter+1) + ".png"
+            elif counter+1 < 100 :
+                image_name = str(outputFolderPath) + "/test_mask_000" + str(counter+1) + ".png"
+            elif counter+1 < 1000:
+                image_name = str(outputFolderPath) + "/test_mask_00" + str(counter+1) + ".png"
+            elif counter+1 < 10000:
+                image_name = str(outputFolderPath) + "/test_mask_0" + str(counter+1) + ".png"
+            else :
+                image_name = str(outputFolderPath) + "/test_mask_" + str(counter+1) + ".png"
+
+            imageio.imwrite(image_name, data.astype('uint8'))
+            counter += 1
+
+
+
+if __name__ == "__main__":
+    datasetPath = input("Enter Path of the Dataset: ")
+
+    outputTrainPath = Path(datasetPath.replace("brats19","Dataset/train_frames/train"))
+    Path(outputTrainPath).mkdir(parents = True, exist_ok = True)
+    outputTrainSegPath = Path(datasetPath.replace("brats19","Dataset/train_masks/train"))
+    Path(outputTrainSegPath).mkdir(parents = True, exist_ok = True)
+
+    outputValPath = Path(datasetPath.replace("brats19","Dataset/val_frames/val"))
+    Path(outputValPath).mkdir(parents = True, exist_ok = True)
+    outputValSegPath = Path(datasetPath.replace("brats19","Dataset/val_masks/val"))
+    Path(outputValSegPath).mkdir(parents = True, exist_ok = True)
+
+    outputTestPath = Path(datasetPath.replace("brats19","Dataset/test_frames/test"))
+    Path(outputTestPath).mkdir(parents = True, exist_ok = True)
+    outputTestSegPath = Path(datasetPath.replace("brats19","Dataset/test_masks/test"))
+    Path(outputTestSegPath).mkdir(parents = True, exist_ok = True)
+
+    allT1Brains = Path(datasetPath).rglob("*t1.nii.gz")
+    allT1ceBrains = Path(datasetPath).rglob("*t1ce.nii.gz")
+    allT2Brains = Path(datasetPath).rglob("*t2.nii.gz")
+    allFlairBrains = Path(datasetPath).rglob("*flair.nii.gz")
+
+    allBrainsStr = []
+    for brain in allT1Brains :
+        allBrainsStr.append(str(brain))
+    for brain in allT1ceBrains :
+        allBrainsStr.append(str(brain))
+    for brain in allT2Brains :
+        allBrainsStr.append(str(brain))
+    for brain in allFlairBrains :
+        allBrainsStr.append(str(brain))
+
+    #dataset split into 70-20-10 ratio (train-val-test)
+    trainSplit = int(0.7*(len(allBrainsStr)))
+    valSplit = int(0.9*(len(allBrainsStr)))
+
+    allTrainBrains = allBrainsStr[:trainSplit]
+    allValBrains = allBrainsStr[trainSplit:valSplit]
+    allTestBrains = allBrainsStr[valSplit:]
+
+    allSegBrains = Path(datasetPath).rglob("*seg.nii.gz")
+    allSegBrainsStr1 = []
+    for brain in allSegBrains :
+        allSegBrainsStr1.append(str(brain))
+
+    allSegBrainsStr2 = allSegBrainsStr1
+    allSegBrainsStr3 = allSegBrainsStr1
+    allSegBrainsStr4 = allSegBrainsStr1
+
+    allSegBrainsStr = allSegBrainsStr1 + allSegBrainsStr2 + allSegBrainsStr3 + allSegBrainsStr4
+
+
+    allTrainSegBrains =  allSegBrainsStr[:trainSplit]
+    allValSegBrains = allSegBrainsStr[trainSplit:valSplit]
+    allTestSegBrains = allSegBrainsStr[valSplit:]
+
+    SliceIndexList = []
+    maxSliceList = []
+    for brain in allSegBrainsStr :
+        image_array = nibabel.load(brain).get_data()
+        maxSliceList = select_slice(image_array)
+        SliceIndexList.append(maxSliceList)
+
+    counter = 0
+    for index, brain in enumerate(allTrainBrains):
+        niitopng(brain, outputTrainPath, counter, 1, SliceIndexList[index])
+        counter += 20
+
+    counter = 0
+    for index, brain in enumerate(allTrainSegBrains):
+        niitopng(brain, outputTrainSegPath, counter, 2, SliceIndexList[index])
+        counter += 20
+
+    counter = 0
+    for index, brain in enumerate(allValBrains):
+        niitopng(brain, outputValPath, counter, 3, SliceIndexList[index + trainSplit])
+        counter += 20
+
+    counter = 0
+    for index, brain in enumerate(allValSegBrains):
+        niitopng(brain, outputValSegPath, counter, 4, SliceIndexList[index + trainSplit])
+        counter += 20
+
+    counter = 0
+    for index, brain in enumerate(allTestBrains):
+        niitopng(brain, outputTestPath, counter, 5, SliceIndexList[index + valSplit])
+        counter += 20
+
+    counter = 0
+    for index, brain in enumerate(allTestSegBrains):
+        niitopng(brain, outputTestSegPath, counter, 6, SliceIndexList[index + valSplit])
+        counter += 20
+
+    print("finished converting images")
+
+--- train.py ---
+import tensorflow as tf
+import datetime
+import matplotlib.pyplot as plt
+from PIL import Image
+import numpy
+from pathlib import Path
+from unet import *
+from augment import *
+import tensorflow as tf
+from IPython.display import clear_output
+
+
+dataset_path = input("Enter the dataset path :")
+
+model = unet()
+
+sample_image_path = dataset_path + "/test_frames/test/test_frame_001.png"
+sample_mask_path = dataset_path + "/test_masks/test/test_mask_001.png"
+
+sample_image = Image.open(sample_image_path)
+sample_image = numpy.array(sample_image)
+sample_image_array = tf.expand_dims(sample_image, axis=-1)
+sample_mask = Image.open(sample_mask_path)
+sample_mask = numpy.array(sample_mask)
+sample_mask_array = tf.expand_dims(sample_mask, axis=-1)
+
+
+def display(display_list):
+  plt.figure(figsize=(15, 15))
+
+  title = ['Input Image', 'True Mask', 'Predicted Mask']
+
+  for i in range(len(display_list)):
+    plt.subplot(1, len(display_list), i+1)
+    plt.title(title[i])
+    plt.imshow(tf.keras.preprocessing.image.array_to_img(display_list[i]), cmap = 'gray')
+    plt.axis('off')
+  plt.show()
+
+def create_mask(pred_mask):
+  pred_mask *= 255.0
+  pred_mask = tf.squeeze(pred_mask, axis=0)
+  pred_mask = tf.argmax(pred_mask, axis=-1)
+  pred_mask = tf.expand_dims(pred_mask, axis=-1)
+
+  return pred_mask
+
+def show_predictions(dataset=None, num=1):
+  if dataset:
+    for image, mask in dataset.take(num):
+      pred_mask = model.predict(image)
+      display([image[0], mask[0], create_mask(pred_mask)])
+  else:
+    display([sample_image_array, sample_mask_array,
+             create_mask(model.predict(sample_image_array[tf.newaxis, ...]))])
+
+class DisplayCallback(tf.keras.callbacks.Callback):
+  def on_epoch_end(self, epoch, logs=None):
+    clear_output(wait=True)
+    show_predictions()
+    print ('\nSample Prediction after epoch {}\n'.format(epoch+1))
+
+STEPS_PER_EPOCH = 234 // 16 # Train_frames / batch_size
+VALIDATION_STEPS = 67 // 16 # validation_frame / batch_size
+
+weights_path = '/home/rahul/Desktop/project/weights'
+Path(weights_path).mkdir(exist_ok = True)
+logdir_path = '/home/rahul/Desktop/project/logs'
+Path(logdir_path).mkdir(exist_ok = True)
+datetime = datetime.datetime.now().strftime("%Y.%m.%d-%H:%M:%S")
+logdir = Path(logdir_path) / datetime
+tensorboard_callback = tf.keras.callbacks.TensorBoard(logdir, histogram_freq=1)
+
+callbacks = [
+    # to show samples after each epoch
+    #DisplayCallback(),
+    # to collect some useful metrics and visualize them in tensorboard
+    tensorboard_callback,
+    # if no accuracy improvements we can stop the training directly
+    tf.keras.callbacks.EarlyStopping(patience=10, verbose=1),
+    # to save checkpoints
+    tf.keras.callbacks.ModelCheckpoint('/home/rahul/Desktop/project/weights/best_model_unet.h5', verbose=1, save_best_only=True, save_weights_only=True)
+]
+
+train_set = augmentation('train', dataset_path)
+val_set = augmentation('valid', dataset_path)
+
+model.summary()
+
+model_history = model.fit(train_set, batch_size = 16, epochs = 20,
+                          steps_per_epoch = STEPS_PER_EPOCH,
+                          validation_steps = VALIDATION_STEPS,
+                          validation_data = val_set,
+                          callbacks = callbacks,
+                          use_multiprocessing = True)
+
+loss = model_history.history['loss']
+val_loss = model_history.history['val_loss']
+
+epochs = range(20)
+
+plt.figure()
+plt.plot(epochs, loss, 'r', label='Training loss')
+plt.plot(epochs, val_loss, 'bo', label='Validation loss')
+plt.title('Training and Validation Loss')
+plt.xlabel('Epoch')
+plt.ylabel('Loss Value')
+plt.ylim([0, 1])
+plt.legend()
+plt.show()
+
+--- unet.py ---
+import tensorflow as tf
+from tensorflow.keras import backend as K
+from tensorflow.keras.layers import *
+from tensorflow.keras.optimizers import Adam
+
+
+def unet(input_size = (256, 256, 1)):
+
+    initializer = 'he_normal'
+
+    inputs = Input(shape=input_size)                                   #(240,240,1)
+    conv1 = Conv2D(32, (3, 3), activation='relu', padding='same',
+                   kernel_initializer=initializer)(inputs)             #(240,240,32)
+    conv1 = Conv2D(32, (3, 3), activation='relu', padding='same',
+                   kernel_initializer=initializer)(conv1)              #(240,240,32)
+    pool1 = MaxPooling2D(pool_size=(2, 2))(conv1)                      #(120,120,32)
+
+    conv2 = Conv2D(64, (3, 3), activation='relu', padding='same',
+                   kernel_initializer=initializer)(pool1)              #(120,120,64)
+    conv2 = Conv2D(64, (3, 3), activation='relu', padding='same',
+                   kernel_initializer=initializer)(conv2)              #(120,120,64)
+    pool2 = MaxPooling2D(pool_size=(2, 2))(conv2)                      #(60,60,64)
+
+    conv3 = Conv2D(128, (3, 3), activation='relu', padding='same',
+                   kernel_initializer=initializer)(pool2)              #(60,60,128)
+    conv3 = Conv2D(128, (3, 3), activation='relu', padding='same',
+                   kernel_initializer=initializer)(conv3)              #(60,60,128)
+    pool3 = MaxPooling2D(pool_size=(2, 2))(conv3)                      #(30,30,128)
+
+    conv4 = Conv2D(256, (3, 3), activation='relu', padding='same',
+                   kernel_initializer=initializer)(pool3)              #(30,30,256)
+    conv4 = Conv2D(256, (3, 3), activation='relu', padding='same',
+                   kernel_initializer=initializer)(conv4)              #(30,30,256)
+    pool4 = MaxPooling2D(pool_size=(2, 2))(conv4)                      #(15,15,256)
+
+    conv5 = Conv2D(512, (3, 3), activation='relu', padding='same',
+                   kernel_initializer=initializer)(pool4)              #(15,15,512)
+    conv5 = Conv2D(512, (3, 3), activation='relu', padding='same',
+                   kernel_initializer=initializer)(conv5)              #(15,15,512)
+
+    up6 = concatenate([Conv2DTranspose(256, (2, 2), strides=(2, 2), padding='same',  #(30,30,256)
+                kernel_initializer=initializer)(conv5),conv4], axis=3) #(30,30,512)
+    conv6 = Conv2D(256, (3, 3), activation='relu', padding='same',
+                   kernel_initializer=initializer)(up6)                #(30,30,256)
+    conv6 = Conv2D(256, (3, 3), activation='relu', padding='same',
+                   kernel_initializer=initializer)(conv6)              #(30,30,256)
+
+    up7 = concatenate([Conv2DTranspose(128, (2, 2), strides=(2, 2), padding='same',  #(60,60,128)
+                kernel_initializer=initializer)(conv6),conv3], axis=3) #(60,60,256)
+    conv7 = Conv2D(128, (3, 3), activation='relu', padding='same',
+                   kernel_initializer=initializer)(up7)                #(60,60,128)
+    conv7 = Conv2D(128, (3, 3), activation='relu', padding='same',
+                   kernel_initializer=initializer)(conv7)              #(60,60,128)
+
+    up8 = concatenate([Conv2DTranspose(64, (2, 2), strides=(2, 2),padding='same',    #(120,120,64)
+                kernel_initializer=initializer)(conv7),conv2], axis=3) #(120,120,128)
+    conv8 = Conv2D(64, (3, 3), activation='relu', padding='same',
+                   kernel_initializer=initializer)(up8)                #(120,120,64)
+    conv8 = Conv2D(64, (3, 3), activation='relu', padding='same',
+                    kernel_initializer=initializer)(conv8)             #(120,120,64)
+
+    up9 = concatenate([Conv2DTranspose(32, (2, 2), strides=(2, 2), padding='same', #(240,240,32)
+                kernel_initializer=initializer)(conv8),conv1], axis=3)  #(240,240,64)
+    conv9 = Conv2D(32, (3, 3), activation='relu', padding='same',
+                   kernel_initializer=initializer)(up9)                 #(240,240,32)
+    conv9 = Conv2D(32, (3, 3), activation='relu', padding='same',
+                   kernel_initializer=initializer)(conv9)               #(240,240,32)
+
+    conv10 = Conv2D(4, (1, 1), activation='relu',
+                    kernel_initializer=initializer)(conv9)             #(240,240,4)
+    conv10 = Activation('softmax')(conv10)                             #(240,240,4)
+
+    model = tf.keras.Model(inputs = [inputs], outputs = [conv10])
+
+    adam = Adam(learning_rate = 1e-4)
+    model.compile(optimizer= adam, loss = tf.keras.losses.CategoricalCrossentropy(),
+                  metrics=['accuracy'])
+
+    return model

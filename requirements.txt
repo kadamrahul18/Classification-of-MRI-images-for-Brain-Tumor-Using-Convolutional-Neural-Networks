@@ -1,0 +1,14 @@
+albumentations
+imageio
+ipython
+matplotlib
+nibabel
+numpy
+opencv-python
+pillow
+pyyaml
+SimpleITK
+tensorflow
+fastapi
+uvicorn
+python-multipart

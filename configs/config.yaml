@@ -1,0 +1,33 @@
+# Default configuration for brain tumor segmentation
+
+data:
+  root: ./Dataset
+  train_images: train_frames/train
+  train_masks: train_masks/train
+  val_images: val_frames/val
+  val_masks: val_masks/val
+  test_images: test_frames/test
+  test_masks: test_masks/test
+  class_names: [background, non-enhancing, edema, enhancing]
+  image_size: 256
+
+augmentation:
+  enable: true
+
+training:
+  batch_size: 16
+  epochs: 20
+  learning_rate: 0.0001
+  steps_per_epoch: null
+  validation_steps: null
+  early_stopping_patience: 10
+  use_multiprocessing: true
+  workers: 4
+  seed: 42
+  log_dir: ./outputs/logs
+  checkpoint_dir: ./outputs/checkpoints
+  checkpoint_filename: best_model_unet.h5
+
+model:
+  input_channels: 1
+  base_filters: 32
