@@ -33,6 +33,7 @@ logs/
 # Weights and datasets
 weights/
 Dataset/
+repository_dump.txt
 
 # Docker
 *.pid
