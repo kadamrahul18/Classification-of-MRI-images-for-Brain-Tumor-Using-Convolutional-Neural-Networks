@@ -1,44 +1,133 @@
 # Brain Tumor Segmentation Pipeline (BraTS 2019)
 
-[![Python](https://img.shields.io/badge/Python-3.9+-blue.svg)](https://www.python.org/) [![TensorFlow](https://img.shields.io/badge/TensorFlow-2.x-orange.svg)](https://www.tensorflow.org/) [![Docker](https://img.shields.io/badge/Docker-ready-2496ED.svg)](https://www.docker.com/) [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE) [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)](#)
+![Banner](https://img.shields.io/badge/Focus-Medical_Imaging-red)
+[![Python](https://img.shields.io/badge/Python-3.9%2B-blue.svg)](https://www.python.org/)
+[![TensorFlow](https://img.shields.io/badge/TensorFlow-2.x-orange.svg)](https://www.tensorflow.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.68%2B-009688.svg)](https://fastapi.tiangolo.com/)
+[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg)](https://www.docker.com/)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-## Project Overview (Why)
-Glioma segmentation on MRI is critical for surgical planning and treatment response tracking, but manual delineation is slow and subjective. This pipeline automates multi-modal MRI segmentation (T1, T1ce, T2, FLAIR) from BraTS 2019 using a U-Net tailored for medical images. It tackles class imbalance and boundary precision with hybrid Dice + categorical crossentropy loss, while robust augmentations and N4 bias correction improve signal consistency across scanners.
+> **An end-to-end MLOps pipeline for automating Glioma segmentation from multi-modal MRI scans.**
 
-## System Architecture
-```mermaid
-graph TD
-    A[NIfTI Volumes] --> B[Preprocessing<br/>Bias Correction / Normalization]
-    B --> C[Data Augmentation]
-    C --> D[U-Net Model]
-    D --> E[Inference API<br/>(FastAPI)]
-    E --> F[Output<br/>Segmentation Mask]
-```
-
-## Key Features
-- N4 Bias Field Correction with SimpleITK to stabilize intensity profiles.
-- Custom Data Loader for PNG slices with class-consistent pairing and one-hot masks.
-- Hybrid Loss Function (Dice + Categorical Crossentropy) to sharpen tumor boundaries under class imbalance.
-- Containerized Inference via FastAPI + Docker, deployable on GCP Vertex AI.
-- Headless dependencies for lean containers (`opencv-python-headless`) and `.dockerignore` to keep builds small.
-
-## Getting Started (Local)
-1) Clone: `git clone https://github.com/your-org/brain-tumor-segmentation-pipeline.git && cd brain-tumor-segmentation-pipeline`
-2) Install deps: `pip install -r requirements.txt`
-3) Train: `python train.py --config configs/config.yaml --data-root ./Dataset`
-   - Prepare data first with `python -m src.data.prepare_slices --dataset-root /path/to/brats2019 --output-root ./Dataset`
-   - Optional bias correction: `python -m src.data.bias_correction --input-dir /path/to/brats2019 --output-dir /path/to/brats2019_preprocessed`
-
-## Docker & Deployment
-- Build image: `docker build -t brain-seg:latest .`
-- Run container (serving on 8080): `docker run -p 8080:8080 brain-seg:latest`
-- FastAPI endpoints:
-  - `/health` — readiness check (Vertex AI compatible).
-  - `/predict` — returns PNG mask for an uploaded image (`UploadFile`).
-  - `/predict-json` — returns class map as JSON.
-
-## Results
-**Qualitative Results** (drop in GIFs or side-by-side examples here)
+## 📋 Table of Contents
+- [Project Overview](#-project-overview)
+- [System Architecture](#-system-architecture)
+- [Key Features](#-key-features)
+- [Project Structure](#-project-structure)
+- [Installation & Setup](#-installation--setup)
+- [Usage (Training)](#-usage-training)
+- [Deployment (Docker & Vertex AI)](#-deployment-docker--vertex-ai)
+- [Results](#-results)
 
 ---
-Tech stack: TensorFlow/Keras, SimpleITK, Nibabel, Albumentations, FastAPI, Docker, Vertex AI.***
+
+## 🏥 Project Overview
+Glioma segmentation is a critical step in surgical planning and longitudinal tumor tracking. Manual delineation by radiologists is time-consuming and subject to inter-observer variability.
+
+This project implements a production-grade Deep Learning pipeline to automate this process. Using the **BraTS 2019 dataset**, it processes four MRI modalities (T1, T1ce, T2, FLAIR) to predict segmentation masks for tumor sub-regions. The system is engineered for scalability, featuring a modular codebase, containerized inference, and cloud deployment capabilities.
+
+## 🏗 System Architecture
+
+```mermaid
+graph TD
+    A[NIfTI Volumes<br/>(T1, T1ce, T2, FLAIR)] --> B["Preprocessing<br/>(N4 Bias Correction & Normalization)"]
+    B --> C[Data Augmentation<br/>(Albumentations)]
+    C --> D[U-Net Model<br/>(TensorFlow/Keras)]
+    D --> E["Inference API<br/>(FastAPI)"]
+    E --> F["Output<br/>Segmentation Mask"]
+    style D fill:#f9f,stroke:#333,stroke-width:2px
+    style E fill:#bbf,stroke:#333,stroke-width:2px
+```
+
+## ✨ Key Features
+- **Advanced Preprocessing:** Implements **N4 Bias Field Correction** using SimpleITK to remove RF inhomogeneity artifacts, essential for consistent MRI analysis.
+- **Custom U-Net Architecture:** Deep CNN with encoder-decoder paths tailored for semantic segmentation of medical images.
+- **Hybrid Loss Function:** Combines **Soft Dice Loss** and **Categorical Crossentropy** to handle extreme class imbalance (small tumor regions vs. large background).
+- **Production Engineering:**
+    - Modular `src/` layout with separated concerns (data, modeling, training, service).
+    - **FastAPI** microservice for real-time inference.
+    - **Dockerized** environment optimized with `.dockerignore` and `opencv-python-headless`.
+
+## 📂 Project Structure
+```text
+brain-tumor-segmentation/
+├── configs/               # YAML configuration files
+├── src/
+│   ├── data/              # Data loading, bias correction, and augmentation
+│   ├── models/            # U-Net architecture definition
+│   ├── service/           # FastAPI application logic
+│   ├── training/          # Training loops and callbacks
+│   └── utils/             # Helper functions and config parsers
+├── weights/               # Saved model checkpoints (gitignored)
+├── Dockerfile             # Production container definition
+├── requirements.txt       # Python dependencies
+├── train.py               # Training entry point
+└── README.md              # Project documentation
+```
+
+## ⚙️ Installation & Setup
+
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/kadamrahul18/Classification-of-MRI-images-for-Brain-Tumor-Using-Convolutional-Neural-Networks.git
+   cd Classification-of-MRI-images-for-Brain-Tumor-Using-Convolutional-Neural-Networks
+   ```
+
+2. **Create a virtual environment:**
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   ```
+
+3. **Install dependencies:**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+## 🚀 Usage (Training)
+
+**1. Prepare the Data:**
+Convert raw BraTS NIfTI files into processed PNG slices.
+```bash
+python -m src.data.prepare_slices \
+  --dataset-root /path/to/brats2019/MICCAI_BraTS_2019_Data_Training \
+  --output-root ./Dataset
+```
+
+**2. Run Training:**
+Start the training loop using the configuration file.
+```bash
+python train.py --config configs/config.yaml --epochs 20
+```
+*Artifacts (logs and weights) will be saved to `./outputs/`.*
+
+## 🐳 Deployment (Docker & Vertex AI)
+
+The application is containerized for easy deployment to Google Cloud Platform (Vertex AI) or AWS ECS.
+
+**1. Build the Docker Image:**
+```bash
+docker build -t brain-seg:latest .
+```
+
+**2. Run Locally:**
+```bash
+docker run -p 8080:8080 brain-seg:latest
+```
+
+**3. API Documentation:**
+Once running, navigate to `http://localhost:8080/docs` to interact with the Swagger UI.
+
+*   **Endpoint:** `POST /predict`
+*   **Input:** Single MRI slice (PNG/JPG)
+*   **Output:** Segmentation mask (PNG)
+
+## 📊 Results
+
+*(Placeholder: Upload a side-by-side comparison image of "Input MRI" vs "Predicted Mask" to your repo and link it here)*
+
+<!-- Example: ![Results](assets/results_comparison.png) -->
+
+---
+**Author:** Rahul Kadam
+**Contact:** [rsk8552@nyu.edu](mailto:rsk8552@nyu.edu) | [LinkedIn](https://linkedin.com/in/rahul-kadam6399)
