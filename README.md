@@ -30,9 +30,9 @@ This project implements a production-grade Deep Learning pipeline to automate th
 
 ```mermaid
 graph TD
-    A[NIfTI Volumes<br/>(T1, T1ce, T2, FLAIR)] --> B["Preprocessing<br/>(N4 Bias Correction & Normalization)"]
-    B --> C[Data Augmentation<br/>(Albumentations)]
-    C --> D[U-Net Model<br/>(TensorFlow/Keras)]
+    A["NIfTI Volumes<br/>(T1, T1ce, T2, FLAIR)"] --> B["Preprocessing<br/>(N4 Bias Correction & Normalization)"]
+    B --> C["Data Augmentation<br/>(Albumentations)"]
+    C --> D["U-Net Model<br/>(TensorFlow/Keras)"]
     D --> E["Inference API<br/>(FastAPI)"]
     E --> F["Output<br/>Segmentation Mask"]
     style D fill:#f9f,stroke:#333,stroke-width:2px
@@ -122,12 +122,8 @@ Once running, navigate to `http://localhost:8080/docs` to interact with the Swag
 *   **Input:** Single MRI slice (PNG/JPG)
 *   **Output:** Segmentation mask (PNG)
 
-## 📊 Results
+<!-- ## 📊 Results
 
 *(Placeholder: Upload a side-by-side comparison image of "Input MRI" vs "Predicted Mask" to your repo and link it here)*
 
-<!-- Example: ![Results](assets/results_comparison.png) -->
-
----
-**Author:** Rahul Kadam
-**Contact:** [rsk8552@nyu.edu](mailto:rsk8552@nyu.edu) | [LinkedIn](https://linkedin.com/in/rahul-kadam6399)
+Example: ![Results](assets/results_comparison.png) -->
