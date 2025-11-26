@@ -4,7 +4,7 @@ ipython
 matplotlib
 nibabel
 numpy
-opencv-python
+opencv-python-headless
 pillow
 pyyaml
 SimpleITK

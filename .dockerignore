@@ -1,0 +1,8 @@
+Dataset/
+weights/
+outputs/
+logs/
+__pycache__/
+venv/
+.git/
+.vscode/
