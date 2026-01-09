@@ -1,0 +1,31 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install -r requirements-3d.txt
+
+      - name: Import API module
+        run: python -m src.service.api
+
+      - name: Prepare slices help
+        run: python -m src.data.prepare_slices --help
+
+      - name: Run tests
+        run: pytest -q

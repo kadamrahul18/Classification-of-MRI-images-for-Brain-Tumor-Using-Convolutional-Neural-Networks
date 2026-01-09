@@ -33,6 +33,7 @@ logs/
 # Weights and datasets
 weights/
 Dataset/
+data/
 repository_dump.txt
 
 # Docker

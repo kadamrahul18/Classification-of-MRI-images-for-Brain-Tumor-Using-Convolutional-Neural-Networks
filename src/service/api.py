@@ -1,9 +1,11 @@
+import base64
 import io
 from functools import lru_cache
 from pathlib import Path
+from typing import Any, Dict
 
 import numpy as np
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import Body, FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import JSONResponse, StreamingResponse
 from PIL import Image
 
@@ -49,6 +51,33 @@ def postprocess_mask(prediction: np.ndarray) -> Image.Image:
     return mask
 
 
+def decode_vertex_instance(instance: Any) -> bytes:
+    if isinstance(instance, str):
+        payload = instance
+    elif isinstance(instance, dict):
+        if "b64" in instance:
+            payload = instance["b64"]
+        elif "image_bytes" in instance and isinstance(instance["image_bytes"], dict):
+            payload = instance["image_bytes"].get("b64")
+        else:
+            raise HTTPException(status_code=400, detail="Unsupported instance format")
+    else:
+        raise HTTPException(status_code=400, detail="Unsupported instance type")
+
+    if not payload:
+        raise HTTPException(status_code=400, detail="Missing base64 payload")
+
+    try:
+        return base64.b64decode(payload, validate=True)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid base64 payload: {exc}")
+
+
+def validate_prediction(prediction: np.ndarray):
+    if prediction.ndim != 4 or prediction.shape[-1] != NUM_CLASSES:
+        raise HTTPException(status_code=400, detail="Model output has unexpected shape")
+
+
 @app.get("/health")
 def health():
     return {"status": "ok"}
@@ -63,6 +92,7 @@ def predict(file: UploadFile = File(...)):
 
     input_tensor = preprocess_image(file_bytes)
     prediction = model.predict(input_tensor)
+    validate_prediction(prediction)
     mask_img = postprocess_mask(prediction)
 
     buffer = io.BytesIO()
@@ -83,5 +113,26 @@ def predict_json(file: UploadFile = File(...)):
 
     input_tensor = preprocess_image(file_bytes)
     prediction = model.predict(input_tensor)
+    validate_prediction(prediction)
     class_map = np.argmax(prediction, axis=-1)[0].astype(int).tolist()
     return JSONResponse({"mask": class_map})
+
+
+@app.post("/vertex/predict")
+def vertex_predict(payload: Dict[str, Any] = Body(...)):
+    """Vertex AI-compatible prediction endpoint using base64-encoded image bytes."""
+    model = load_model()
+    instances = payload.get("instances")
+    if not isinstance(instances, list) or not instances:
+        raise HTTPException(status_code=400, detail="Payload must include non-empty 'instances' list")
+
+    predictions = []
+    for instance in instances:
+        file_bytes = decode_vertex_instance(instance)
+        input_tensor = preprocess_image(file_bytes)
+        prediction = model.predict(input_tensor, verbose=0)
+        validate_prediction(prediction)
+        class_map = np.argmax(prediction, axis=-1)[0].astype(int).tolist()
+        predictions.append({"mask": class_map})
+
+    return JSONResponse({"predictions": predictions})

@@ -1,0 +1,39 @@
+# 3D pipeline configuration for MSD Task01_BrainTumour
+
+data:
+  root: ./data/raw/msd_task01/Task01_BrainTumour
+  train_ratio: 0.7
+  val_ratio: 0.2
+  seed: 42
+  list_files:
+    train: null
+    val: null
+    test: null
+  label_mode: binary
+  class_names: [background, tumor]
+  roi_size: [128, 128, 128]
+  pos_ratio: 0.7
+  percentiles: [0.5, 99.5]
+
+model:
+  in_channels: 4
+  channels: [16, 32, 64, 128, 256]
+  strides: [2, 2, 2, 2]
+  num_res_units: 2
+  norm: batch
+
+training:
+  batch_size: 1
+  learning_rate: 0.0001
+  max_epochs: 100
+  num_workers: 2
+  seed: 42
+  deterministic: false
+  output_dir: ./outputs/runs
+  limit_train_batches: null
+  limit_val_batches: null
+
+inference:
+  roi_size: [128, 128, 128]
+  overlap: 0.5
+  sw_batch_size: 2

@@ -1,19 +1,42 @@
 File structure:
 - .gitignore
 - .dockerignore
+- .github/workflows/ci.yml
 - README.md
+- AGENTS.md
 - Dockerfile
 - requirements.txt
+- requirements-3d.txt
+- scripts/download_msd_task01.py
+- tests/test_smoke_pipeline.py
+- tests/test_smoke_3d_pipeline.py
 - configs/config.yaml
+- configs/config_3d.yaml
 - train.py
+- src/__init__.py
+- src/eval.py
+- src/eval_3d.py
+- src/utils/__init__.py
 - src/utils/config.py
+- src/data/__init__.py
 - src/data/augmentations.py
 - src/data/dataset.py
 - src/data/prepare_slices.py
+- src/data/msd_task01_3d.py
 - src/data/bias_correction.py
+- src/models/__init__.py
 - src/models/unet.py
+- src/training/__init__.py
 - src/training/train.py
+- src/train_3d.py
+- src/service/__init__.py
 - src/service/api.py
+- smoke_dataset/train_frames/train/slice_000.png
+- smoke_dataset/train_masks/train/slice_000.png
+- smoke_dataset/val_frames/val/slice_001.png
+- smoke_dataset/val_masks/val/slice_001.png
+- smoke_dataset/test_frames/test/slice_002.png
+- smoke_dataset/test_masks/test/slice_002.png
 
 --- .gitignore ---
 # Byte-compiled / optimized / DLL files
@@ -51,6 +74,8 @@ logs/
 # Weights and datasets
 weights/
 Dataset/
+data/
+repository_dump.txt
 
 # Docker
 *.pid
@@ -69,50 +94,292 @@ venv/
 .git/
 .vscode/
 
+--- .github/workflows/ci.yml ---
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install -r requirements-3d.txt
+
+      - name: Import API module
+        run: python -m src.service.api
+
+      - name: Prepare slices help
+        run: python -m src.data.prepare_slices --help
+
+      - name: Run tests
+        run: pytest -q
+
 --- README.md ---
-# Brain Tumor Segmentation Pipeline (BraTS 2019)
+# Brain Tumor Segmentation Pipeline (MSD Task01 + BraTS-compatible)
 
-[![Python](https://img.shields.io/badge/Python-3.9+-blue.svg)](https://www.python.org/) [![TensorFlow](https://img.shields.io/badge/TensorFlow-2.x-orange.svg)](https://www.tensorflow.org/) [![Docker](https://img.shields.io/badge/Docker-ready-2496ED.svg)](https://www.docker.com/) [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE) [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)](#)
+![Banner](https://img.shields.io/badge/Focus-Medical_Imaging-red)
+[![Python](https://img.shields.io/badge/Python-3.9%2B-blue.svg)](https://www.python.org/)
+[![TensorFlow](https://img.shields.io/badge/TensorFlow-2.x-orange.svg)](https://www.tensorflow.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.68%2B-009688.svg)](https://fastapi.tiangolo.com/)
+[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg)](https://www.docker.com/)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-## Project Overview (Why)
-Glioma segmentation on MRI is critical for surgical planning and treatment response tracking, but manual delineation is slow and subjective. This pipeline automates multi-modal MRI segmentation (T1, T1ce, T2, FLAIR) from BraTS 2019 using a U-Net tailored for medical images. It tackles class imbalance and boundary precision with hybrid Dice + categorical crossentropy loss, while robust augmentations and N4 bias correction improve signal consistency across scanners.
+> **An end-to-end MLOps pipeline for automating Glioma segmentation from multi-modal MRI scans.**
 
-## System Architecture
-```mermaid
-graph TD
-    A[NIfTI Volumes] --> B[Preprocessing<br/>Bias Correction / Normalization]
-    B --> C[Data Augmentation]
-    C --> D[U-Net Model]
-    D --> E[Inference API<br/>(FastAPI)]
-    E --> F[Output<br/>Segmentation Mask]
-```
-
-## Key Features
-- N4 Bias Field Correction with SimpleITK to stabilize intensity profiles.
-- Custom Data Loader for PNG slices with class-consistent pairing and one-hot masks.
-- Hybrid Loss Function (Dice + Categorical Crossentropy) to sharpen tumor boundaries under class imbalance.
-- Containerized Inference via FastAPI + Docker, deployable on GCP Vertex AI.
-
-## Getting Started (Local)
-1) Clone: `git clone https://github.com/your-org/brain-tumor-segmentation-pipeline.git && cd brain-tumor-segmentation-pipeline`
-2) Install deps: `pip install -r requirements.txt`
-3) Train: `python train.py --config configs/config.yaml --data-root ./Dataset`
-   - Prepare data first with `python -m src.data.prepare_slices --dataset-root /path/to/brats2019 --output-root ./Dataset`
-   - Optional bias correction: `python -m src.data.bias_correction --input-dir /path/to/brats2019 --output-dir /path/to/brats2019_preprocessed`
-
-## Docker & Deployment
-- Build image: `docker build -t brain-seg:latest .`
-- Run container (serving on 8080): `docker run -p 8080:8080 brain-seg:latest`
-- FastAPI endpoints:
-  - `/health` — readiness check (Vertex AI compatible).
-  - `/predict` — returns PNG mask for an uploaded image (`UploadFile`).
-  - `/predict-json` — returns class map as JSON.
-
-## Results
-**Qualitative Results** (drop in GIFs or side-by-side examples here)
+## 📋 Table of Contents
+- [Project Overview](#-project-overview)
+- [System Architecture](#-system-architecture)
+- [Key Features](#-key-features)
+- [Project Structure](#-project-structure)
+- [Installation & Setup](#-installation--setup)
+- [3D Pipeline (Recommended)](#-3d-pipeline-recommended)
+- [2D Baseline (Optional)](#-2d-baseline-optional)
+- [Quick Demo](#-quick-demo)
+- [Deployment (Docker & Vertex AI)](#-deployment-docker--vertex-ai)
+- [Results](#-results)
 
 ---
-Tech stack: TensorFlow/Keras, SimpleITK, Nibabel, Albumentations, FastAPI, Docker, Vertex AI.***
+
+## 🏥 Project Overview
+Glioma segmentation is a critical step in surgical planning and longitudinal tumor tracking. Manual delineation by radiologists is time-consuming and subject to inter-observer variability.
+
+This project implements a production-grade Deep Learning pipeline to automate this process. Using the **MSD Task01_BrainTumour dataset** (and compatible BraTS layouts), it processes four MRI modalities (T1, T1ce, T2, FLAIR) to predict segmentation masks for tumor sub-regions. The system is engineered for scalability, featuring a modular codebase, containerized inference, and cloud deployment capabilities.
+
+## 🏗 System Architecture
+
+```mermaid
+graph TD
+    A["NIfTI Volumes<br/>(T1, T1ce, T2, FLAIR)"] --> B["Preprocessing<br/>(N4 Bias Correction & Normalization)"]
+    B --> C["Data Augmentation<br/>(Albumentations)"]
+    C --> D["U-Net Model<br/>(TensorFlow/Keras)"]
+    D --> E["Inference API<br/>(FastAPI)"]
+    E --> F["Output<br/>Segmentation Mask"]
+    style D fill:#f9f,stroke:#333,stroke-width:2px
+    style E fill:#bbf,stroke:#333,stroke-width:2px
+```
+
+## ✨ Key Features
+- **Advanced Preprocessing:** Implements **N4 Bias Field Correction** using SimpleITK to remove RF inhomogeneity artifacts, essential for consistent MRI analysis.
+- **Custom U-Net Architecture:** Deep CNN with encoder-decoder paths tailored for semantic segmentation of medical images.
+- **Hybrid Loss Function:** Combines **Soft Dice Loss** and **Categorical Crossentropy** to handle extreme class imbalance (small tumor regions vs. large background).
+- **Production Engineering:**
+    - Modular `src/` layout with separated concerns (data, modeling, training, service).
+    - **FastAPI** microservice for real-time inference.
+    - **Dockerized** environment optimized with `.dockerignore` and `opencv-python-headless`.
+
+## 📂 Project Structure
+```text
+brain-tumor-segmentation/
+├── configs/               # YAML configuration files
+├── src/
+│   ├── data/              # Data loading, bias correction, and augmentation
+│   ├── models/            # U-Net architecture definition
+│   ├── service/           # FastAPI application logic
+│   ├── training/          # Training loops and callbacks
+│   └── utils/             # Helper functions and config parsers
+├── weights/               # Saved model checkpoints (gitignored)
+├── Dockerfile             # Production container definition
+├── requirements.txt       # Python dependencies
+├── train.py               # Training entry point
+└── README.md              # Project documentation
+```
+
+## ⚙️ Installation & Setup
+
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/kadamrahul18/Classification-of-MRI-images-for-Brain-Tumor-Using-Convolutional-Neural-Networks.git
+   cd Classification-of-MRI-images-for-Brain-Tumor-Using-Convolutional-Neural-Networks
+   ```
+
+2. **Create a virtual environment:**
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   ```
+
+3. **Install dependencies:**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+## 🚀 3D Pipeline (Recommended)
+
+Install 3D dependencies:
+```bash
+pip install -r requirements-3d.txt
+```
+
+**1. Download the Data (MSD Task01):**
+```bash
+python scripts/download_msd_task01.py
+```
+
+**2. Train 3D U-Net:**
+```bash
+python -m src.train_3d --config configs/config_3d.yaml
+```
+
+**3. Evaluate 3D U-Net:**
+```bash
+python -m src.eval_3d --config configs/config_3d.yaml --weights outputs/runs/<timestamp>/best.pt
+```
+This writes `outputs/metrics_3d.json`.
+
+Example output format (placeholder until you run it):
+```json
+{
+  "dataset_format": "msd_task01",
+  "label_mode": "binary",
+  "val": { "dice_per_class": { "background": null }, "mean_dice": null },
+  "test": { "dice_per_class": { "background": null }, "mean_dice": null }
+}
+```
+
+## 🚀 2D Baseline (Optional)
+
+**1. Prepare the Data:**
+Download MSD Task01_BrainTumour and convert NIfTI volumes into PNG slices.
+```bash
+python scripts/download_msd_task01.py
+python -m src.data.prepare_slices \
+  --dataset-format msd_task01 \
+  --dataset-root data/raw/msd_task01/Task01_BrainTumour \
+  --output-root ./Dataset \
+  --slices-per-volume 20 \
+  --channel flair \
+  --label-mode binary
+```
+
+BraTS-compatible input is still supported:
+```bash
+python -m src.data.prepare_slices \
+  --dataset-format brats \
+  --dataset-root /path/to/brats_data \
+  --output-root ./Dataset
+```
+
+**2. Run Training:**
+Start the training loop using the configuration file.
+```bash
+python train.py --config configs/config.yaml --epochs 20
+```
+*Artifacts (logs and weights) will be saved to `./outputs/`.*
+
+## ⚡ Quick Demo
+Run the API locally, upload a PNG slice, and save the predicted mask.
+
+```bash
+uvicorn src.service.api:app --host 0.0.0.0 --port 8080
+curl -F "file=@example.png" http://localhost:8080/predict -o mask.png
+```
+
+## 🐳 Deployment (Docker & Vertex AI)
+
+The application is containerized for easy deployment. For multipart file uploads (`/predict`), Cloud Run is the simplest target.
+
+**1. Build the Docker Image:**
+```bash
+docker build -t brain-seg:latest .
+```
+
+**2. Run Locally:**
+```bash
+docker run -p 8080:8080 brain-seg:latest
+```
+
+**3. API Documentation:**
+Once running, navigate to `http://localhost:8080/docs` to interact with the Swagger UI.
+
+*   **Endpoint:** `POST /predict`
+*   **Input:** Single MRI slice (PNG/JPG)
+*   **Output:** Segmentation mask (PNG)
+
+**Vertex AI custom container usage:**
+Vertex AI requires JSON requests; use `POST /vertex/predict` with base64-encoded bytes.
+```bash
+curl -X POST "http://localhost:8080/vertex/predict" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "instances": [
+      {
+        "b64": "'"$(base64 -i /path/to/slice.png)"'"
+      }
+    ]
+  }'
+```
+
+## 📊 Results
+3D evaluation writes per-class Dice scores and mean Dice to `outputs/metrics_3d.json`.
+2D evaluation writes to `outputs/metrics.json`.
+
+Example output format (placeholder until you run it):
+```json
+{
+  "dataset_format": "msd_task01",
+  "label_mode": "binary",
+  "val": { "dice_per_class": { "background": null }, "mean_dice": null },
+  "test": { "dice_per_class": { "background": null }, "mean_dice": null }
+}
+```
+
+**Assumptions:**
+- MSD Task01 channel order is assumed to be `[t1, t1ce, t2, flair]` when selecting `--channel`.
+- For binary masks, update `configs/config.yaml` to use two classes (e.g., `class_names: [background, tumor]`).
+- Volume inference via API is not implemented yet. TODO: add a NIfTI endpoint for 3D inference.
+
+--- AGENTS.md ---
+# Repository Guidelines
+
+## Project Structure & Module Organization
+- `src/` houses the core package.
+  - `src/data/` preprocessing and dataset utilities (bias correction, slice prep, augmentations).
+  - `src/models/` model definitions (U-Net).
+  - `src/training/` training entrypoints and loops.
+  - `src/service/` FastAPI inference service.
+  - `src/utils/` config helpers.
+- `configs/config.yaml` is the primary runtime configuration.
+- `train.py` is the top-level training entrypoint.
+- `requirements.txt` and `Dockerfile` define dependencies and container runtime.
+- `Dataset/`, `weights/`, `outputs/`, and `logs/` are ignored and used for data, checkpoints, and artifacts.
+
+## Build, Test, and Development Commands
+- Install deps: `pip install -r requirements.txt`.
+- Prepare slices: `python -m src.data.prepare_slices --dataset-root /path/to/brats2019 --output-root ./Dataset`.
+- Optional bias correction: `python -m src.data.bias_correction --input-dir /path/to/brats2019 --output-dir /path/to/brats2019_preprocessed`.
+- Train: `python train.py --config configs/config.yaml --data-root ./Dataset`.
+- Run API (local): `uvicorn src.service.api:app --host 0.0.0.0 --port 8080`.
+- Build container: `docker build -t brain-seg:latest .`.
+
+## Coding Style & Naming Conventions
+- Python code uses 4-space indentation and PEP 8-style naming (modules/functions `snake_case`, classes `CamelCase`).
+- Keep filenames descriptive and colocate utilities with their domains (e.g., `src/data/*`).
+- No formatter or linter is configured; keep changes minimal and readable.
+
+## Testing Guidelines
+- No automated test suite is present.
+- If adding tests, document the framework and add a clear command in this file and `README.md`.
+
+## Commit & Pull Request Guidelines
+- Git history does not show a strict convention; use concise, descriptive commit messages (e.g., “add bias correction CLI flags”).
+- PRs should include: a summary, linked issue (if any), and example commands or screenshots for user-facing changes (e.g., API responses).
+
+## Configuration & Runtime Notes
+- All runtime parameters live in `configs/config.yaml`; prefer config changes over hard-coded values.
+- Model outputs and logs default to `./outputs/` (see `training` config). Keep large artifacts out of git.
 
 --- Dockerfile ---
 # Lightweight production image for FastAPI inference
@@ -158,6 +425,65 @@ tensorflow
 fastapi
 uvicorn
 python-multipart
+pytest
+
+--- requirements-3d.txt ---
+torch
+monai
+
+--- scripts/download_msd_task01.py ---
+import argparse
+import tarfile
+import urllib.request
+from pathlib import Path
+
+
+DEFAULT_URL = "https://msd-for-monai.s3-us-west-2.amazonaws.com/Task01_BrainTumour.tar"
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Download MSD Task01_BrainTumour dataset")
+    parser.add_argument("--url", default=DEFAULT_URL, help="Dataset tar URL")
+    parser.add_argument(
+        "--output-dir",
+        default="data/raw/msd_task01",
+        help="Directory to extract Task01_BrainTumour into",
+    )
+    parser.add_argument("--force", action="store_true", help="Re-download and extract even if present")
+    return parser.parse_args()
+
+
+def download_file(url: str, dest: Path):
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    if dest.exists():
+        return
+    print(f"Downloading {url} to {dest}")
+    urllib.request.urlretrieve(url, dest)
+
+
+def extract_archive(archive_path: Path, output_dir: Path):
+    print(f"Extracting {archive_path} to {output_dir}")
+    with tarfile.open(archive_path, "r:*") as tar:
+        tar.extractall(path=output_dir)
+
+
+def main():
+    args = parse_args()
+    output_dir = Path(args.output_dir).expanduser().resolve()
+    archive_path = output_dir / "Task01_BrainTumour.tar"
+    extracted_root = output_dir / "Task01_BrainTumour"
+
+    if extracted_root.exists() and not args.force:
+        print(f"Dataset already present at {extracted_root}")
+        return
+
+    download_file(args.url, archive_path)
+    extract_archive(archive_path, output_dir)
+    print(f"Ready: {extracted_root}")
+
+
+if __name__ == "__main__":
+    main()
 
 --- configs/config.yaml ---
 # Default configuration for brain tumor segmentation
@@ -194,6 +520,47 @@ model:
   input_channels: 1
   base_filters: 32
 
+--- configs/config_3d.yaml ---
+# 3D pipeline configuration for MSD Task01_BrainTumour
+
+data:
+  root: ./data/raw/msd_task01/Task01_BrainTumour
+  train_ratio: 0.7
+  val_ratio: 0.2
+  seed: 42
+  list_files:
+    train: null
+    val: null
+    test: null
+  label_mode: binary
+  class_names: [background, tumor]
+  roi_size: [128, 128, 128]
+  pos_ratio: 0.7
+  percentiles: [0.5, 99.5]
+
+model:
+  in_channels: 4
+  channels: [16, 32, 64, 128, 256]
+  strides: [2, 2, 2, 2]
+  num_res_units: 2
+  norm: batch
+
+training:
+  batch_size: 1
+  learning_rate: 0.0001
+  max_epochs: 100
+  num_workers: 2
+  seed: 42
+  deterministic: false
+  output_dir: ./outputs/runs
+  limit_train_batches: null
+  limit_val_batches: null
+
+inference:
+  roi_size: [128, 128, 128]
+  overlap: 0.5
+  sw_batch_size: 2
+
 --- train.py ---
 """Entry point for training using the modular pipeline."""
 from src.training.train import main
@@ -201,6 +568,708 @@ from src.training.train import main
 
 if __name__ == "__main__":
     main()
+
+--- src/train_3d.py ---
+import argparse
+import csv
+import json
+import random
+from datetime import datetime
+from pathlib import Path
+from typing import Dict, List, Tuple
+
+import numpy as np
+import torch
+import yaml
+from monai.losses import DiceCELoss
+from monai.metrics import DiceMetric
+from monai.networks.nets import UNet
+from monai.transforms import AsDiscrete
+
+from src.data.msd_task01_3d import MSDTask01Dataset3D, build_splits, list_msd_task01_cases
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Train 3D U-Net on MSD Task01")
+    parser.add_argument("--config", default="configs/config_3d.yaml", help="Path to YAML config file")
+    parser.add_argument("--max-epochs", type=int, help="Override max epochs")
+    parser.add_argument("--limit-train-batches", type=int, help="Limit train batches per epoch")
+    parser.add_argument("--limit-val-batches", type=int, help="Limit val batches per epoch")
+    parser.add_argument("--deterministic", action="store_true", help="Enable deterministic training")
+    return parser.parse_args()
+
+
+def set_seeds(seed: int, deterministic: bool):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+    if deterministic:
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+
+
+def load_config(path: str) -> Dict:
+    with open(path, "r", encoding="utf-8") as f:
+        return yaml.safe_load(f)
+
+
+def resolve_config(cfg: Dict, args) -> Dict:
+    cfg = json.loads(json.dumps(cfg))
+    if args.max_epochs is not None:
+        cfg["training"]["max_epochs"] = args.max_epochs
+    if args.limit_train_batches is not None:
+        cfg["training"]["limit_train_batches"] = args.limit_train_batches
+    if args.limit_val_batches is not None:
+        cfg["training"]["limit_val_batches"] = args.limit_val_batches
+    if args.deterministic:
+        cfg["training"]["deterministic"] = True
+    return cfg
+
+
+def build_model(cfg: Dict, num_classes: int) -> UNet:
+    model_cfg = cfg["model"]
+    return UNet(
+        spatial_dims=3,
+        in_channels=model_cfg["in_channels"],
+        out_channels=num_classes,
+        channels=model_cfg["channels"],
+        strides=model_cfg["strides"],
+        num_res_units=model_cfg["num_res_units"],
+        norm=model_cfg["norm"],
+    )
+
+
+def build_dataloaders(cfg: Dict) -> Tuple[torch.utils.data.DataLoader, torch.utils.data.DataLoader]:
+    data_cfg = cfg["data"]
+    cases = list_msd_task01_cases(Path(data_cfg["root"]))
+    splits = build_splits(
+        cases,
+        train_ratio=data_cfg["train_ratio"],
+        val_ratio=data_cfg["val_ratio"],
+        seed=data_cfg.get("seed", 42),
+        list_files=data_cfg.get("list_files"),
+    )
+    num_classes = len(data_cfg.get("class_names", ["background", "tumor"]))
+    if data_cfg["label_mode"] == "binary":
+        num_classes = 2
+    roi_size = data_cfg.get("roi_size")
+    percentiles = tuple(data_cfg.get("percentiles", [0.5, 99.5]))
+
+    train_dataset = MSDTask01Dataset3D(
+        splits["train"],
+        roi_size=roi_size,
+        label_mode=data_cfg["label_mode"],
+        num_classes=num_classes,
+        pos_ratio=data_cfg.get("pos_ratio", 0.5),
+        percentiles=percentiles,
+        mode="train",
+        seed=data_cfg.get("seed", 42),
+    )
+    val_dataset = MSDTask01Dataset3D(
+        splits["val"],
+        roi_size=roi_size,
+        label_mode=data_cfg["label_mode"],
+        num_classes=num_classes,
+        pos_ratio=0.0,
+        percentiles=percentiles,
+        mode="val",
+        seed=data_cfg.get("seed", 42),
+    )
+
+    train_loader = torch.utils.data.DataLoader(
+        train_dataset,
+        batch_size=cfg["training"]["batch_size"],
+        shuffle=True,
+        num_workers=cfg["training"]["num_workers"],
+    )
+    val_loader = torch.utils.data.DataLoader(
+        val_dataset,
+        batch_size=cfg["training"]["batch_size"],
+        shuffle=False,
+        num_workers=cfg["training"]["num_workers"],
+    )
+    return train_loader, val_loader
+
+
+def compute_dice(pred: torch.Tensor, target: torch.Tensor, include_background: bool) -> torch.Tensor:
+    dice_metric = DiceMetric(include_background=include_background, reduction="none")
+    dice_metric(y_pred=pred, y=target)
+    return dice_metric.aggregate()
+
+
+def main():
+    args = parse_args()
+    cfg = resolve_config(load_config(args.config), args)
+    run_dir = Path(cfg["training"]["output_dir"]) / datetime.now().strftime("%Y%m%d_%H%M%S")
+    run_dir.mkdir(parents=True, exist_ok=True)
+
+    with (run_dir / "train_config_resolved.yaml").open("w", encoding="utf-8") as f:
+        yaml.safe_dump(cfg, f, sort_keys=False)
+
+    set_seeds(cfg["training"].get("seed", 42), cfg["training"].get("deterministic", False))
+
+    data_cfg = cfg["data"]
+    num_classes = len(data_cfg.get("class_names", ["background", "tumor"]))
+    if data_cfg["label_mode"] == "binary":
+        num_classes = 2
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = build_model(cfg, num_classes).to(device)
+
+    loss_fn = DiceCELoss(
+        to_onehot_y=False,
+        softmax=True,
+        include_background=True,
+    )
+    optimizer = torch.optim.Adam(model.parameters(), lr=cfg["training"]["learning_rate"])
+    scaler = torch.cuda.amp.GradScaler(enabled=torch.cuda.is_available())
+    post_pred = AsDiscrete(argmax=True, to_onehot=num_classes)
+
+    train_loader, val_loader = build_dataloaders(cfg)
+
+    best_dice = -1.0
+    metrics_path = run_dir / "metrics.csv"
+    with metrics_path.open("w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["epoch", "train_loss", "val_mean_dice"])
+
+        for epoch in range(cfg["training"]["max_epochs"]):
+            model.train()
+            train_loss = 0.0
+            batch_count = 0
+            for batch_idx, (images, labels) in enumerate(train_loader):
+                if cfg["training"].get("limit_train_batches") and batch_idx >= cfg["training"]["limit_train_batches"]:
+                    break
+                images = images.to(device)
+                labels = labels.to(device)
+                optimizer.zero_grad(set_to_none=True)
+                with torch.cuda.amp.autocast(enabled=torch.cuda.is_available()):
+                    logits = model(images)
+                    loss = loss_fn(logits, labels)
+                scaler.scale(loss).backward()
+                scaler.step(optimizer)
+                scaler.update()
+                train_loss += loss.item()
+                batch_count += 1
+
+            train_loss /= max(1, batch_count)
+
+            model.eval()
+            dice_scores: List[float] = []
+            with torch.no_grad():
+                for val_idx, (images, labels) in enumerate(val_loader):
+                    if cfg["training"].get("limit_val_batches") and val_idx >= cfg["training"]["limit_val_batches"]:
+                        break
+                    images = images.to(device)
+                    labels = labels.to(device)
+                    logits = model(images)
+                    preds = post_pred(torch.softmax(logits, dim=1))
+                    dice = compute_dice(preds, labels, include_background=True)
+                    dice_scores.append(dice.mean().item())
+
+            val_mean_dice = float(np.mean(dice_scores)) if dice_scores else 0.0
+            writer.writerow([epoch + 1, f"{train_loss:.6f}", f"{val_mean_dice:.6f}"])
+            f.flush()
+
+            if val_mean_dice > best_dice:
+                best_dice = val_mean_dice
+                torch.save(model.state_dict(), run_dir / "best.pt")
+
+    print(f"Best val mean Dice: {best_dice:.4f}")
+    print(f"Run directory: {run_dir}")
+
+
+if __name__ == "__main__":
+    main()
+
+--- tests/test_smoke_pipeline.py ---
+from pathlib import Path
+
+import imageio
+import nibabel as nib
+import numpy as np
+
+from src.data import prepare_slices
+
+
+def test_prepare_slices_msd_task01(tmp_path: Path):
+    images_dir = tmp_path / "imagesTr"
+    labels_dir = tmp_path / "labelsTr"
+    images_dir.mkdir(parents=True)
+    labels_dir.mkdir(parents=True)
+
+    image = np.random.rand(32, 32, 8, 4).astype("float32")
+    label = np.zeros((32, 32, 8), dtype="uint8")
+    label[8:16, 8:16, 3] = 1
+
+    image_path = images_dir / "brain_000.nii.gz"
+    label_path = labels_dir / "brain_000.nii.gz"
+    nib.save(nib.Nifti1Image(image, affine=np.eye(4)), str(image_path))
+    nib.save(nib.Nifti1Image(label, affine=np.eye(4)), str(label_path))
+
+    output_root = tmp_path / "Dataset"
+    prepare_slices.prepare_dataset(
+        dataset_root=tmp_path,
+        output_root=output_root,
+        slices_per_volume=2,
+        dataset_format="msd_task01",
+        channel="flair",
+        label_mode="binary",
+    )
+
+    pngs = sorted(output_root.rglob("*.png"))
+    assert len(pngs) == 4
+
+    mask_paths = sorted((output_root / "test_masks" / "test").glob("*.png"))
+    assert mask_paths
+    mask = imageio.imread(mask_paths[0])
+    assert mask.ndim == 2
+    assert mask.dtype == np.uint8
+    assert set(np.unique(mask)).issubset({0, 1})
+
+--- tests/test_smoke_3d_pipeline.py ---
+import json
+from pathlib import Path
+
+import nibabel as nib
+import numpy as np
+import torch
+import yaml
+from monai.networks.nets import UNet
+
+from src.data.msd_task01_3d import MSDTask01Dataset3D, list_msd_task01_cases
+from src.eval_3d import main as eval_main
+
+
+def _write_msd_case(root: Path):
+    images_dir = root / "imagesTr"
+    labels_dir = root / "labelsTr"
+    images_dir.mkdir(parents=True)
+    labels_dir.mkdir(parents=True)
+
+    image = np.random.rand(16, 16, 16, 4).astype("float32")
+    label = np.zeros((16, 16, 16), dtype="uint8")
+    label[4:8, 4:8, 4:8] = 1
+
+    image_path = images_dir / "case_000.nii.gz"
+    label_path = labels_dir / "case_000.nii.gz"
+    nib.save(nib.Nifti1Image(image, affine=np.eye(4)), str(image_path))
+    nib.save(nib.Nifti1Image(label, affine=np.eye(4)), str(label_path))
+
+
+def test_3d_dataset_model_eval(tmp_path: Path, monkeypatch):
+    _write_msd_case(tmp_path)
+    cases = list_msd_task01_cases(tmp_path)
+    dataset = MSDTask01Dataset3D(
+        cases,
+        roi_size=(16, 16, 16),
+        label_mode="binary",
+        num_classes=2,
+        pos_ratio=1.0,
+        percentiles=(0.5, 99.5),
+        mode="train",
+        seed=123,
+    )
+
+    image, label = dataset[0]
+    assert image.shape == (4, 16, 16, 16)
+    assert label.shape == (2, 16, 16, 16)
+
+    model = UNet(
+        spatial_dims=3,
+        in_channels=4,
+        out_channels=2,
+        channels=(8, 16),
+        strides=(2,),
+        num_res_units=1,
+        norm="batch",
+    )
+    with torch.no_grad():
+        output = model(image.unsqueeze(0))
+    assert output.shape[1] == 2
+
+    weights_path = tmp_path / "weights.pt"
+    torch.save(model.state_dict(), weights_path)
+
+    config = {
+        "data": {
+            "root": str(tmp_path),
+            "train_ratio": 0.0,
+            "val_ratio": 1.0,
+            "seed": 42,
+            "label_mode": "binary",
+            "class_names": ["background", "tumor"],
+            "roi_size": [16, 16, 16],
+            "pos_ratio": 1.0,
+            "percentiles": [0.5, 99.5],
+        },
+        "model": {
+            "in_channels": 4,
+            "channels": [8, 16],
+            "strides": [2],
+            "num_res_units": 1,
+            "norm": "batch",
+        },
+        "training": {
+            "batch_size": 1,
+            "learning_rate": 0.0001,
+            "max_epochs": 1,
+            "num_workers": 0,
+            "seed": 42,
+            "deterministic": True,
+            "output_dir": "./outputs/runs",
+            "limit_train_batches": 1,
+            "limit_val_batches": 1,
+        },
+        "inference": {"roi_size": [16, 16, 16], "overlap": 0.0, "sw_batch_size": 1},
+    }
+    config_path = tmp_path / "config_3d.yaml"
+    with config_path.open("w", encoding="utf-8") as f:
+        yaml.safe_dump(config, f, sort_keys=False)
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        "sys.argv",
+        ["python", "-m", "src.eval_3d", "--config", str(config_path), "--weights", str(weights_path)],
+    )
+    eval_main()
+
+    metrics_path = tmp_path / "outputs" / "metrics_3d.json"
+    assert metrics_path.exists()
+    metrics = json.loads(metrics_path.read_text())
+    assert "val" in metrics and "test" in metrics
+
+--- src/__init__.py ---
+
+--- src/eval.py ---
+import argparse
+import json
+from pathlib import Path
+from typing import Dict, List, Tuple
+
+import numpy as np
+import tensorflow as tf
+
+from src.data.dataset import build_dataloader
+from src.models.unet import build_unet
+from src.utils.config import apply_overrides, load_config, resolve_paths
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Evaluate U-Net on val/test splits")
+    parser.add_argument("--config", default="configs/config.yaml", help="Path to YAML config file")
+    parser.add_argument("--data-root", dest="data_root", help="Override dataset root directory")
+    parser.add_argument("--batch-size", type=int, help="Override batch size")
+    parser.add_argument("--weights", help="Path to model weights .h5 file")
+    parser.add_argument(
+        "--dataset-format",
+        choices=["brats", "msd_task01"],
+        default="brats",
+        help="Dataset format used to generate slices",
+    )
+    parser.add_argument(
+        "--label-mode",
+        choices=["binary", "multiclass"],
+        default="binary",
+        help="Label mode used to generate masks",
+    )
+    return parser.parse_args()
+
+
+def build_model(cfg) -> tf.keras.Model:
+    image_size = cfg["data"]["image_size"]
+    input_channels = cfg["model"]["input_channels"]
+    class_names = cfg["data"]["class_names"]
+    model = build_unet(
+        input_size=(image_size, image_size, input_channels),
+        num_classes=len(class_names),
+        base_filters=cfg["model"].get("base_filters", 32),
+        learning_rate=cfg["training"]["learning_rate"],
+    )
+    return model
+
+
+def resolve_weights_path(cfg, weights_override: str = None) -> Path:
+    if weights_override:
+        return Path(weights_override).expanduser().resolve()
+    checkpoint_dir = Path(cfg["training"]["checkpoint_dir"])
+    checkpoint_name = cfg["training"]["checkpoint_filename"]
+    return (checkpoint_dir / checkpoint_name).expanduser().resolve()
+
+
+def accumulate_dice(
+    model: tf.keras.Model,
+    loader,
+    num_classes: int,
+) -> Tuple[List[float], float]:
+    intersections = np.zeros(num_classes, dtype=np.float64)
+    totals = np.zeros(num_classes, dtype=np.float64)
+    for images, masks in loader:
+        preds = model.predict(images, verbose=0)
+        pred_classes = np.argmax(preds, axis=-1)
+        true_classes = np.argmax(masks, axis=-1)
+        for class_idx in range(num_classes):
+            pred_mask = pred_classes == class_idx
+            true_mask = true_classes == class_idx
+            intersections[class_idx] += np.logical_and(pred_mask, true_mask).sum()
+            totals[class_idx] += pred_mask.sum() + true_mask.sum()
+
+    dice_per_class = []
+    for class_idx in range(num_classes):
+        if totals[class_idx] == 0:
+            dice = 1.0
+        else:
+            dice = (2.0 * intersections[class_idx]) / totals[class_idx]
+        dice_per_class.append(float(dice))
+    mean_dice = float(np.mean(dice_per_class)) if dice_per_class else 0.0
+    return dice_per_class, mean_dice
+
+
+def evaluate_split(model: tf.keras.Model, cfg, split_name: str) -> Dict[str, float]:
+    class_names = cfg["data"]["class_names"]
+    images_dir = cfg["data"][f"{split_name}_images"]
+    masks_dir = cfg["data"][f"{split_name}_masks"]
+    batch_size = cfg["training"]["batch_size"]
+    if not images_dir.exists() or not masks_dir.exists():
+        raise FileNotFoundError(f"Missing {split_name} data at {images_dir} or {masks_dir}")
+    loader = build_dataloader(
+        images_dir,
+        masks_dir,
+        class_names,
+        batch_size=batch_size,
+        image_size=cfg["data"]["image_size"],
+        augmentation=None,
+        shuffle=False,
+    )
+    if len(loader) == 0:
+        raise ValueError(f"No samples found for {split_name} split")
+    dice_per_class, mean_dice = accumulate_dice(model, loader, len(class_names))
+    return {
+        "dice_per_class": dict(zip(class_names, dice_per_class)),
+        "mean_dice": mean_dice,
+    }
+
+
+def main():
+    args = parse_args()
+    cfg = load_config(args.config)
+    cfg = apply_overrides(cfg, args)
+    if args.batch_size:
+        cfg["training"]["batch_size"] = args.batch_size
+    cfg = resolve_paths(cfg)
+
+    weights_path = resolve_weights_path(cfg, args.weights)
+    if not weights_path.exists():
+        raise FileNotFoundError(f"Model weights not found at {weights_path}")
+
+    model = build_model(cfg)
+    model.load_weights(weights_path)
+
+    metrics = {
+        "dataset_format": args.dataset_format,
+        "label_mode": args.label_mode,
+        "val": evaluate_split(model, cfg, "val"),
+        "test": evaluate_split(model, cfg, "test"),
+    }
+
+    output_dir = Path("outputs").resolve()
+    output_dir.mkdir(parents=True, exist_ok=True)
+    metrics_path = output_dir / "metrics.json"
+    with metrics_path.open("w", encoding="utf-8") as f:
+        json.dump(metrics, f, indent=2)
+    print(f"Wrote metrics to {metrics_path}")
+
+
+if __name__ == "__main__":
+    main()
+
+--- src/eval_3d.py ---
+import argparse
+import json
+import subprocess
+from pathlib import Path
+from typing import Dict, List, Tuple
+
+import numpy as np
+import torch
+import yaml
+from monai.inferers import sliding_window_inference
+from monai.metrics import DiceMetric
+from monai.networks.nets import UNet
+from monai.transforms import AsDiscrete
+
+from src.data.msd_task01_3d import MSDTask01Dataset3D, build_splits, list_msd_task01_cases
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Evaluate 3D U-Net on MSD Task01")
+    parser.add_argument("--config", default="configs/config_3d.yaml", help="Path to YAML config file")
+    parser.add_argument("--weights", required=True, help="Path to model weights .pt")
+    return parser.parse_args()
+
+
+def load_config(path: str) -> Dict:
+    with open(path, "r", encoding="utf-8") as f:
+        return yaml.safe_load(f)
+
+
+def build_model(cfg: Dict, num_classes: int) -> UNet:
+    model_cfg = cfg["model"]
+    return UNet(
+        spatial_dims=3,
+        in_channels=model_cfg["in_channels"],
+        out_channels=num_classes,
+        channels=model_cfg["channels"],
+        strides=model_cfg["strides"],
+        num_res_units=model_cfg["num_res_units"],
+        norm=model_cfg["norm"],
+    )
+
+
+def get_git_hash() -> str:
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return result.stdout.strip()
+    except Exception:
+        return ""
+
+
+def evaluate_split(
+    model: torch.nn.Module,
+    dataset: torch.utils.data.Dataset,
+    device: torch.device,
+    roi_size: Tuple[int, int, int],
+    overlap: float,
+    sw_batch_size: int,
+    num_classes: int,
+) -> Tuple[List[float], int]:
+    model.eval()
+    post_pred = AsDiscrete(argmax=True, to_onehot=num_classes)
+    dice_metric = DiceMetric(include_background=True, reduction="none")
+
+    dice_scores = []
+    with torch.no_grad():
+        for image, label in dataset:
+            image = image.unsqueeze(0).to(device)
+            label = label.unsqueeze(0).to(device)
+            logits = sliding_window_inference(
+                image, roi_size=roi_size, sw_batch_size=sw_batch_size, predictor=model, overlap=overlap
+            )
+            pred = post_pred(torch.softmax(logits, dim=1))
+            dice_metric(y_pred=pred, y=label)
+            dice = dice_metric.aggregate()
+            dice_scores.append(dice.cpu().numpy())
+            dice_metric.reset()
+
+    if not dice_scores:
+        return [0.0] * num_classes, 0
+    dice_scores = np.stack(dice_scores, axis=0)
+    return dice_scores.mean(axis=0).tolist(), len(dice_scores)
+
+
+def main():
+    args = parse_args()
+    cfg = load_config(args.config)
+    data_cfg = cfg["data"]
+    inference_cfg = cfg["inference"]
+
+    cases = list_msd_task01_cases(Path(data_cfg["root"]))
+    splits = build_splits(
+        cases,
+        train_ratio=data_cfg["train_ratio"],
+        val_ratio=data_cfg["val_ratio"],
+        seed=data_cfg.get("seed", 42),
+        list_files=data_cfg.get("list_files"),
+    )
+
+    num_classes = len(data_cfg.get("class_names", ["background", "tumor"]))
+    if data_cfg["label_mode"] == "binary":
+        num_classes = 2
+
+    percentiles = tuple(data_cfg.get("percentiles", [0.5, 99.5]))
+    val_dataset = MSDTask01Dataset3D(
+        splits["val"],
+        roi_size=None,
+        label_mode=data_cfg["label_mode"],
+        num_classes=num_classes,
+        pos_ratio=0.0,
+        percentiles=percentiles,
+        mode="val",
+        seed=data_cfg.get("seed", 42),
+    )
+    test_dataset = MSDTask01Dataset3D(
+        splits["test"],
+        roi_size=None,
+        label_mode=data_cfg["label_mode"],
+        num_classes=num_classes,
+        pos_ratio=0.0,
+        percentiles=percentiles,
+        mode="test",
+        seed=data_cfg.get("seed", 42),
+    )
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = build_model(cfg, num_classes).to(device)
+    model.load_state_dict(torch.load(args.weights, map_location=device))
+
+    roi_size = tuple(inference_cfg["roi_size"])
+    overlap = inference_cfg["overlap"]
+    sw_batch_size = inference_cfg["sw_batch_size"]
+
+    val_dice, val_count = evaluate_split(
+        model, val_dataset, device, roi_size, overlap, sw_batch_size, num_classes
+    )
+    test_dice, test_count = evaluate_split(
+        model, test_dataset, device, roi_size, overlap, sw_batch_size, num_classes
+    )
+
+    class_names = data_cfg.get("class_names", [f"class_{i}" for i in range(num_classes)])
+    if len(class_names) != num_classes:
+        class_names = [f"class_{i}" for i in range(num_classes)]
+
+    metrics = {
+        "dataset_format": "msd_task01",
+        "label_mode": data_cfg["label_mode"],
+        "val": {
+            "dice_per_class": dict(zip(class_names, [float(x) for x in val_dice])),
+            "mean_dice": float(np.mean(val_dice)) if val_dice else 0.0,
+            "number_of_volumes": val_count,
+        },
+        "test": {
+            "dice_per_class": dict(zip(class_names, [float(x) for x in test_dice])),
+            "mean_dice": float(np.mean(test_dice)) if test_dice else 0.0,
+            "number_of_volumes": test_count,
+        },
+        "inference": {
+            "roi_size": list(roi_size),
+            "overlap": overlap,
+            "sw_batch_size": sw_batch_size,
+        },
+    }
+
+    git_hash = get_git_hash()
+    if git_hash:
+        metrics["git_commit"] = git_hash
+
+    output_dir = Path("outputs")
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / "metrics_3d.json"
+    with output_path.open("w", encoding="utf-8") as f:
+        json.dump(metrics, f, indent=2)
+    print(f"Wrote metrics to {output_path}")
+
+
+if __name__ == "__main__":
+    main()
+
+--- src/utils/__init__.py ---
 
 --- src/utils/config.py ---
 import argparse
@@ -245,6 +1314,8 @@ def resolve_paths(cfg: Dict[str, Any]) -> Dict[str, Any]:
             training[path_key] = Path(training[path_key]).expanduser().resolve()
             training[path_key].mkdir(parents=True, exist_ok=True)
     return cfg
+
+--- src/data/__init__.py ---
 
 --- src/data/augmentations.py ---
 import albumentations as A
@@ -367,6 +1438,18 @@ import nibabel as nib
 import numpy as np
 
 
+CHANNEL_TO_INDEX = {"t1": 0, "t1ce": 1, "t2": 2, "flair": 3}
+
+
+def normalize_to_uint8(volume: np.ndarray) -> np.ndarray:
+    vmin = float(volume.min())
+    vmax = float(volume.max())
+    if vmax <= vmin:
+        return np.zeros_like(volume, dtype="uint8")
+    scaled = (volume - vmin) / (vmax - vmin)
+    return (scaled * 255.0).astype("uint8")
+
+
 def select_slice_indices(image_array: np.ndarray, slices_per_volume: int) -> List[int]:
     """Select slice indices with highest voxel sums (proxy for information content)."""
     sums = [np.sum(image_array[:, :, i]) for i in range(image_array.shape[2])]
@@ -374,26 +1457,38 @@ def select_slice_indices(image_array: np.ndarray, slices_per_volume: int) -> Lis
     return top_indices.tolist()
 
 
+def select_mask_biased_indices(
+    mask_array: np.ndarray,
+    slices_per_volume: int,
+    rng: np.random.Generator,
+) -> List[int]:
+    """Prefer slices with non-empty masks, then backfill with highest totals."""
+    sums = np.array([np.sum(mask_array[:, :, i]) for i in range(mask_array.shape[2])])
+    non_empty = np.where(sums > 0)[0]
+    if len(non_empty) >= slices_per_volume:
+        chosen = rng.choice(non_empty, size=slices_per_volume, replace=False)
+        return sorted(chosen.tolist())
+    remaining = np.setdiff1d(np.arange(mask_array.shape[2]), non_empty)
+    ranked = remaining[np.argsort(sums[remaining])[::-1]]
+    filled = np.concatenate([non_empty, ranked])[:slices_per_volume]
+    return filled.tolist()
+
+
 def save_slices(
-    nii_path: Path,
+    array: np.ndarray,
     slice_indices: List[int],
     output_dir: Path,
     prefix: str,
     counter_offset: int,
-    cast_uint8: bool = False,
 ):
-    image_array = nib.load(str(nii_path)).get_fdata()
     for idx, slice_idx in enumerate(slice_indices):
-        data = image_array[:, :, slice_idx]
+        data = array[:, :, slice_idx]
         filename = f"{prefix}_{counter_offset + idx:05d}.png"
         output_path = output_dir / filename
-        if cast_uint8:
-            imageio.imwrite(output_path, data.astype("uint8"))
-        else:
-            imageio.imwrite(output_path, data)
+        imageio.imwrite(output_path, data)
 
 
-def build_file_lists(dataset_root: Path) -> Tuple[List[Path], List[Path]]:
+def build_file_lists_brats(dataset_root: Path) -> Tuple[List[Path], List[Path]]:
     modalities = []
     for pattern in ["*t1.nii.gz", "*t1ce.nii.gz", "*t2.nii.gz", "*flair.nii.gz"]:
         modalities.extend(sorted(dataset_root.rglob(pattern)))
@@ -403,13 +1498,44 @@ def build_file_lists(dataset_root: Path) -> Tuple[List[Path], List[Path]]:
     return modalities, segmentations
 
 
-def prepare_dataset(
-    dataset_root: Path,
-    output_root: Path,
-    slices_per_volume: int = 20,
-    train_ratio: float = 0.7,
-    val_ratio: float = 0.2,
-):
+def build_file_lists_msd(dataset_root: Path) -> List[Tuple[Path, Path]]:
+    images_dir = dataset_root / "imagesTr"
+    labels_dir = dataset_root / "labelsTr"
+    if not images_dir.exists() or not labels_dir.exists():
+        raise FileNotFoundError("Expected imagesTr/ and labelsTr/ in MSD Task01 root")
+    images = sorted(images_dir.glob("*.nii.gz"))
+    labels = {p.name.replace(".nii.gz", ""): p for p in labels_dir.glob("*.nii.gz")}
+    pairs = []
+    for image_path in images:
+        key = image_path.name.replace(".nii.gz", "")
+        if key not in labels:
+            raise FileNotFoundError(f"Missing label for {image_path.name}")
+        pairs.append((image_path, labels[key]))
+    return pairs
+
+
+def load_msd_channel(image_path: Path, channel: str) -> np.ndarray:
+    image = nib.load(str(image_path)).get_fdata()
+    if image.ndim != 4:
+        raise ValueError(f"Expected 4D image volume for MSD, got shape {image.shape}")
+    channel_idx = CHANNEL_TO_INDEX[channel]
+    # MSD Task01 is commonly stored as (H, W, D, C) with order [t1, t1ce, t2, flair].
+    if image.shape[-1] == 4:
+        return image[..., channel_idx]
+    if image.shape[0] == 4:
+        return image[channel_idx, ...]
+    raise ValueError(f"Unexpected MSD channel dimension for {image_path}")
+
+
+def convert_label_mode(mask_array: np.ndarray, label_mode: str) -> np.ndarray:
+    if label_mode == "binary":
+        mask_array = (mask_array > 0).astype("uint8")
+    else:
+        mask_array = mask_array.astype("uint8")
+    return mask_array
+
+
+def build_output_paths(output_root: Path) -> Dict[str, Path]:
     output_paths = {
         "train_images": output_root / "train_frames" / "train",
         "train_masks": output_root / "train_masks" / "train",
@@ -420,25 +1546,38 @@ def prepare_dataset(
     }
     for path in output_paths.values():
         path.mkdir(parents=True, exist_ok=True)
+    return output_paths
 
-    brains, segs = build_file_lists(dataset_root)
+
+def split_items(items: List, train_ratio: float, val_ratio: float) -> Dict[str, List]:
+    total = len(items)
+    train_split = int(train_ratio * total)
+    val_split = int((train_ratio + val_ratio) * total)
+    return {
+        "train": items[:train_split],
+        "val": items[train_split:val_split],
+        "test": items[val_split:],
+    }
+
+
+def prepare_brats(
+    dataset_root: Path,
+    output_root: Path,
+    slices_per_volume: int,
+    label_mode: str,
+    train_ratio: float,
+    val_ratio: float,
+):
+    output_paths = build_output_paths(output_root)
+    brains, segs = build_file_lists_brats(dataset_root)
     if len(brains) != len(segs):
         raise ValueError("Number of modality volumes does not match segmentation volumes")
 
-    total = len(brains)
-    train_split = int(train_ratio * total)
-    val_split = int((train_ratio + val_ratio) * total)
-
-    splits = {
-        "train": (brains[:train_split], segs[:train_split]),
-        "val": (brains[train_split:val_split], segs[train_split:val_split]),
-        "test": (brains[val_split:], segs[val_split:]),
-    }
-
+    splits = split_items(list(zip(brains, segs)), train_ratio, val_ratio)
     slice_cache: Dict[Path, List[int]] = {}
 
-    for split_name, (brain_paths, seg_paths) in splits.items():
-        for idx, (brain_path, seg_path) in enumerate(zip(brain_paths, seg_paths)):
+    for split_name, pairs in splits.items():
+        for idx, (brain_path, seg_path) in enumerate(pairs):
             if seg_path not in slice_cache:
                 image_array = nib.load(str(seg_path)).get_fdata()
                 slice_cache[seg_path] = select_slice_indices(image_array, slices_per_volume)
@@ -449,17 +1588,88 @@ def prepare_dataset(
             img_dir_key = f"{split_name}_images"
             mask_dir_key = f"{split_name}_masks"
 
-            save_slices(brain_path, slice_indices, output_paths[img_dir_key], f"{split_name}_frame", counter_offset)
-            save_slices(seg_path, slice_indices, output_paths[mask_dir_key], f"{split_name}_mask", counter_offset, cast_uint8=True)
+            brain_array = nib.load(str(brain_path)).get_fdata()
+            mask_array = nib.load(str(seg_path)).get_fdata()
+            mask_array = convert_label_mode(mask_array, label_mode)
+
+            save_slices(brain_array, slice_indices, output_paths[img_dir_key], f"{split_name}_frame", counter_offset)
+            save_slices(mask_array, slice_indices, output_paths[mask_dir_key], f"{split_name}_mask", counter_offset)
+
+
+def prepare_msd_task01(
+    dataset_root: Path,
+    output_root: Path,
+    slices_per_volume: int,
+    channel: str,
+    label_mode: str,
+    train_ratio: float,
+    val_ratio: float,
+):
+    output_paths = build_output_paths(output_root)
+    pairs = build_file_lists_msd(dataset_root)
+    splits = split_items(pairs, train_ratio, val_ratio)
+    rng = np.random.default_rng(42)
+
+    for split_name, split_pairs in splits.items():
+        for idx, (image_path, label_path) in enumerate(split_pairs):
+            image_array = load_msd_channel(image_path, channel)
+            label_array = nib.load(str(label_path)).get_fdata()
+            label_array = convert_label_mode(label_array, label_mode)
+
+            slice_indices = select_mask_biased_indices(label_array, slices_per_volume, rng)
+            counter_offset = idx * slices_per_volume
+
+            img_dir_key = f"{split_name}_images"
+            mask_dir_key = f"{split_name}_masks"
+
+            image_uint8 = normalize_to_uint8(image_array)
+            save_slices(image_uint8, slice_indices, output_paths[img_dir_key], f"{split_name}_frame", counter_offset)
+            save_slices(label_array, slice_indices, output_paths[mask_dir_key], f"{split_name}_mask", counter_offset)
+
+
+def prepare_dataset(
+    dataset_root: Path,
+    output_root: Path,
+    slices_per_volume: int = 20,
+    dataset_format: str = "brats",
+    channel: str = "flair",
+    label_mode: str = "binary",
+    train_ratio: float = 0.7,
+    val_ratio: float = 0.2,
+):
+    if dataset_format == "brats":
+        prepare_brats(dataset_root, output_root, slices_per_volume, label_mode, train_ratio, val_ratio)
+    elif dataset_format == "msd_task01":
+        prepare_msd_task01(dataset_root, output_root, slices_per_volume, channel, label_mode, train_ratio, val_ratio)
+    else:
+        raise ValueError(f"Unsupported dataset format: {dataset_format}")
 
     print(f"Finished preparing dataset at {output_root}")
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Convert BraTS NIfTI volumes to PNG slices")
-    parser.add_argument("--dataset-root", required=True, help="Path to raw BraTS dataset root")
+    parser = argparse.ArgumentParser(description="Convert NIfTI volumes to PNG slices")
+    parser.add_argument(
+        "--dataset-format",
+        choices=["brats", "msd_task01"],
+        default="brats",
+        help="Dataset format to process",
+    )
+    parser.add_argument("--dataset-root", required=True, help="Path to dataset root")
     parser.add_argument("--output-root", default="./Dataset", help="Where to store PNG slices")
     parser.add_argument("--slices-per-volume", type=int, default=20, help="Number of slices to export per volume")
+    parser.add_argument(
+        "--channel",
+        choices=sorted(CHANNEL_TO_INDEX.keys()),
+        default="flair",
+        help="MRI channel to extract for msd_task01",
+    )
+    parser.add_argument(
+        "--label-mode",
+        choices=["binary", "multiclass"],
+        default="binary",
+        help="Export masks as binary or multiclass labels",
+    )
     return parser.parse_args()
 
 
@@ -468,11 +1678,219 @@ def main():
     dataset_root = Path(args.dataset_root).expanduser().resolve()
     output_root = Path(args.output_root).expanduser().resolve()
 
-    prepare_dataset(dataset_root=dataset_root, output_root=output_root, slices_per_volume=args.slices_per_volume)
+    prepare_dataset(
+        dataset_root=dataset_root,
+        output_root=output_root,
+        slices_per_volume=args.slices_per_volume,
+        dataset_format=args.dataset_format,
+        channel=args.channel,
+        label_mode=args.label_mode,
+    )
 
 
 if __name__ == "__main__":
     main()
+
+--- src/data/msd_task01_3d.py ---
+import random
+from pathlib import Path
+from typing import Dict, List, Optional, Sequence, Tuple
+
+import nibabel as nib
+import numpy as np
+import torch
+
+
+def list_msd_task01_cases(dataset_root: Path) -> List[Tuple[Path, Path]]:
+    images_dir = dataset_root / "imagesTr"
+    labels_dir = dataset_root / "labelsTr"
+    if not images_dir.exists() or not labels_dir.exists():
+        raise FileNotFoundError("Expected imagesTr/ and labelsTr/ in MSD Task01 root")
+    images = sorted(images_dir.glob("*.nii.gz"))
+    labels = {p.stem.replace(".nii", ""): p for p in labels_dir.glob("*.nii.gz")}
+    pairs = []
+    for image_path in images:
+        key = image_path.stem.replace(".nii", "")
+        if key not in labels:
+            raise FileNotFoundError(f"Missing label for {image_path.name}")
+        pairs.append((image_path, labels[key]))
+    return pairs
+
+
+def split_cases(
+    cases: Sequence[Tuple[Path, Path]],
+    train_ratio: float,
+    val_ratio: float,
+    seed: int,
+) -> Dict[str, List[Tuple[Path, Path]]]:
+    rng = random.Random(seed)
+    indices = list(range(len(cases)))
+    rng.shuffle(indices)
+    shuffled = [cases[i] for i in indices]
+    train_split = int(train_ratio * len(shuffled))
+    val_split = int((train_ratio + val_ratio) * len(shuffled))
+    return {
+        "train": shuffled[:train_split],
+        "val": shuffled[train_split:val_split],
+        "test": shuffled[val_split:],
+    }
+
+
+def _case_id(path: Path) -> str:
+    return path.stem.replace(".nii", "")
+
+
+def load_case_ids(list_path: Path) -> List[str]:
+    with list_path.open("r", encoding="utf-8") as f:
+        lines = [line.strip() for line in f.readlines()]
+    return [line for line in lines if line and not line.startswith("#")]
+
+
+def build_splits(
+    cases: Sequence[Tuple[Path, Path]],
+    train_ratio: float,
+    val_ratio: float,
+    seed: int,
+    list_files: Optional[Dict[str, Optional[str]]] = None,
+) -> Dict[str, List[Tuple[Path, Path]]]:
+    if list_files and any(list_files.values()):
+        required = ["train", "val", "test"]
+        if not all(list_files.get(key) for key in required):
+            raise ValueError("list_files must include train, val, and test lists when provided")
+        case_map = {_case_id(img): (img, lbl) for img, lbl in cases}
+        splits = {}
+        for key in required:
+            ids = load_case_ids(Path(list_files[key]))
+            missing = [case_id for case_id in ids if case_id not in case_map]
+            if missing:
+                raise FileNotFoundError(f"Missing cases for split '{key}': {missing[:3]}")
+            splits[key] = [case_map[case_id] for case_id in ids]
+        return splits
+    return split_cases(cases, train_ratio=train_ratio, val_ratio=val_ratio, seed=seed)
+
+
+def _to_channel_first(volume: np.ndarray) -> np.ndarray:
+    if volume.ndim != 4:
+        raise ValueError(f"Expected 4D volume, got shape {volume.shape}")
+    if volume.shape[-1] == 4:
+        return np.transpose(volume, (3, 2, 0, 1))
+    if volume.shape[0] == 4:
+        return np.transpose(volume, (0, 3, 1, 2))
+    raise ValueError(f"Unexpected channel dimension for volume with shape {volume.shape}")
+
+
+def normalize_modalities(
+    volume: np.ndarray,
+    percentiles: Tuple[float, float],
+) -> np.ndarray:
+    normalized = np.zeros_like(volume, dtype=np.float32)
+    for idx in range(volume.shape[0]):
+        channel = volume[idx]
+        mask = channel != 0
+        if mask.any():
+            lo, hi = np.percentile(channel[mask], percentiles)
+            channel = np.clip(channel, lo, hi)
+            mean = channel[mask].mean()
+            std = channel[mask].std()
+        else:
+            mean = channel.mean()
+            std = channel.std()
+        std = std if std > 0 else 1.0
+        normalized[idx] = (channel - mean) / std
+    return normalized
+
+
+def one_hot_encode(label: np.ndarray, num_classes: int) -> np.ndarray:
+    label = label.astype(np.int64)
+    if label.ndim != 3:
+        raise ValueError(f"Expected 3D label volume, got shape {label.shape}")
+    one_hot = np.eye(num_classes, dtype=np.float32)[label]
+    return np.transpose(one_hot, (3, 2, 0, 1))
+
+
+def _pad_to_shape(volume: np.ndarray, target_shape: Sequence[int]) -> np.ndarray:
+    pad_width = []
+    for dim, target in zip(volume.shape, target_shape):
+        total = max(target - dim, 0)
+        pad_before = total // 2
+        pad_after = total - pad_before
+        pad_width.append((pad_before, pad_after))
+    return np.pad(volume, pad_width, mode="constant")
+
+
+def crop_or_pad(volume: np.ndarray, center: Sequence[int], roi_size: Sequence[int]) -> np.ndarray:
+    volume = _pad_to_shape(volume, roi_size)
+    slices = []
+    for dim, c, size in zip(volume.shape, center, roi_size):
+        start = int(c - size // 2)
+        start = max(start, 0)
+        end = start + size
+        if end > dim:
+            end = dim
+            start = end - size
+        slices.append(slice(start, end))
+    return volume[tuple(slices)]
+
+
+def sample_center(label: np.ndarray, roi_size: Sequence[int], pos_ratio: float, rng: np.random.Generator) -> Tuple[int, int, int]:
+    foreground = np.argwhere(label > 0)
+    if foreground.size > 0 and rng.random() < pos_ratio:
+        center = foreground[rng.integers(0, len(foreground))]
+    else:
+        center = np.array([rng.integers(0, dim) for dim in label.shape])
+    center = np.maximum(center, np.array(roi_size) // 2)
+    center = np.minimum(center, np.array(label.shape) - np.array(roi_size) // 2 - 1)
+    return tuple(center.tolist())
+
+
+class MSDTask01Dataset3D(torch.utils.data.Dataset):
+    def __init__(
+        self,
+        cases: Sequence[Tuple[Path, Path]],
+        roi_size: Optional[Sequence[int]],
+        label_mode: str,
+        num_classes: int,
+        pos_ratio: float,
+        percentiles: Tuple[float, float],
+        mode: str = "train",
+        seed: int = 42,
+    ):
+        self.cases = list(cases)
+        self.roi_size = tuple(roi_size) if roi_size is not None else None
+        self.label_mode = label_mode
+        self.num_classes = num_classes
+        self.pos_ratio = pos_ratio
+        self.percentiles = percentiles
+        self.mode = mode
+        self.rng = np.random.default_rng(seed)
+
+    def __len__(self):
+        return len(self.cases)
+
+    def __getitem__(self, idx: int):
+        image_path, label_path = self.cases[idx]
+        image = nib.load(str(image_path)).get_fdata().astype(np.float32)
+        label = nib.load(str(label_path)).get_fdata().astype(np.int64)
+
+        image = _to_channel_first(image)
+        image = normalize_modalities(image, self.percentiles)
+        label = label.astype(np.int64)
+
+        if self.label_mode == "binary":
+            label = (label > 0).astype(np.int64)
+            num_classes = 2
+        else:
+            num_classes = self.num_classes
+
+        if self.roi_size is not None:
+            center = sample_center(label, self.roi_size, self.pos_ratio, self.rng)
+            image = np.stack([crop_or_pad(ch, center, self.roi_size) for ch in image], axis=0)
+            label = crop_or_pad(label, center, self.roi_size)
+
+        label_one_hot = one_hot_encode(label, num_classes)
+        image_tensor = torch.from_numpy(image.astype(np.float32))
+        label_tensor = torch.from_numpy(label_one_hot.astype(np.float32))
+        return image_tensor, label_tensor
 
 --- src/data/bias_correction.py ---
 import argparse
@@ -577,6 +1995,8 @@ def main():
 if __name__ == "__main__":
     main()
 
+--- src/models/__init__.py ---
+
 --- src/models/unet.py ---
 import tensorflow as tf
 from tensorflow.keras.layers import Activation, Concatenate, Conv2D, Conv2DTranspose, Input, MaxPooling2D
@@ -673,6 +2093,8 @@ def build_unet(
         metrics=[dice_coefficient, "accuracy"],
     )
     return model
+
+--- src/training/__init__.py ---
 
 --- src/training/train.py ---
 import argparse
@@ -778,13 +2200,17 @@ def main():
 if __name__ == "__main__":
     main()
 
+--- src/service/__init__.py ---
+
 --- src/service/api.py ---
+import base64
 import io
 from functools import lru_cache
 from pathlib import Path
+from typing import Any, Dict
 
 import numpy as np
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import Body, FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import JSONResponse, StreamingResponse
 from PIL import Image
 
@@ -830,6 +2256,33 @@ def postprocess_mask(prediction: np.ndarray) -> Image.Image:
     return mask
 
 
+def decode_vertex_instance(instance: Any) -> bytes:
+    if isinstance(instance, str):
+        payload = instance
+    elif isinstance(instance, dict):
+        if "b64" in instance:
+            payload = instance["b64"]
+        elif "image_bytes" in instance and isinstance(instance["image_bytes"], dict):
+            payload = instance["image_bytes"].get("b64")
+        else:
+            raise HTTPException(status_code=400, detail="Unsupported instance format")
+    else:
+        raise HTTPException(status_code=400, detail="Unsupported instance type")
+
+    if not payload:
+        raise HTTPException(status_code=400, detail="Missing base64 payload")
+
+    try:
+        return base64.b64decode(payload, validate=True)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid base64 payload: {exc}")
+
+
+def validate_prediction(prediction: np.ndarray):
+    if prediction.ndim != 4 or prediction.shape[-1] != NUM_CLASSES:
+        raise HTTPException(status_code=400, detail="Model output has unexpected shape")
+
+
 @app.get("/health")
 def health():
     return {"status": "ok"}
@@ -844,6 +2297,7 @@ def predict(file: UploadFile = File(...)):
 
     input_tensor = preprocess_image(file_bytes)
     prediction = model.predict(input_tensor)
+    validate_prediction(prediction)
     mask_img = postprocess_mask(prediction)
 
     buffer = io.BytesIO()
@@ -864,5 +2318,44 @@ def predict_json(file: UploadFile = File(...)):
 
     input_tensor = preprocess_image(file_bytes)
     prediction = model.predict(input_tensor)
+    validate_prediction(prediction)
     class_map = np.argmax(prediction, axis=-1)[0].astype(int).tolist()
     return JSONResponse({"mask": class_map})
+
+
+@app.post("/vertex/predict")
+def vertex_predict(payload: Dict[str, Any] = Body(...)):
+    """Vertex AI-compatible prediction endpoint using base64-encoded image bytes."""
+    model = load_model()
+    instances = payload.get("instances")
+    if not isinstance(instances, list) or not instances:
+        raise HTTPException(status_code=400, detail="Payload must include non-empty 'instances' list")
+
+    predictions = []
+    for instance in instances:
+        file_bytes = decode_vertex_instance(instance)
+        input_tensor = preprocess_image(file_bytes)
+        prediction = model.predict(input_tensor, verbose=0)
+        validate_prediction(prediction)
+        class_map = np.argmax(prediction, axis=-1)[0].astype(int).tolist()
+        predictions.append({"mask": class_map})
+
+    return JSONResponse({"predictions": predictions})
+
+--- smoke_dataset/train_frames/train/slice_000.png ---
+(binary file, contents omitted)
+
+--- smoke_dataset/train_masks/train/slice_000.png ---
+(binary file, contents omitted)
+
+--- smoke_dataset/val_frames/val/slice_001.png ---
+(binary file, contents omitted)
+
+--- smoke_dataset/val_masks/val/slice_001.png ---
+(binary file, contents omitted)
+
+--- smoke_dataset/test_frames/test/slice_002.png ---
+(binary file, contents omitted)
+
+--- smoke_dataset/test_masks/test/slice_002.png ---
+(binary file, contents omitted)

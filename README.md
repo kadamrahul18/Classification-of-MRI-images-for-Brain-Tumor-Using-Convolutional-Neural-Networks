@@ -1,4 +1,4 @@
-# Brain Tumor Segmentation Pipeline (BraTS 2019)
+# Brain Tumor Segmentation Pipeline (MSD Task01 + BraTS-compatible)
 
 ![Banner](https://img.shields.io/badge/Focus-Medical_Imaging-red)
 [![Python](https://img.shields.io/badge/Python-3.9%2B-blue.svg)](https://www.python.org/)
@@ -16,6 +16,7 @@
 - [Project Structure](#-project-structure)
 - [Installation & Setup](#-installation--setup)
 - [Usage (Training)](#-usage-training)
+- [Quick Demo](#-quick-demo)
 - [Deployment (Docker & Vertex AI)](#-deployment-docker--vertex-ai)
 - [Results](#-results)
 
@@ -24,7 +25,7 @@
 ## 🏥 Project Overview
 Glioma segmentation is a critical step in surgical planning and longitudinal tumor tracking. Manual delineation by radiologists is time-consuming and subject to inter-observer variability.
 
-This project implements a production-grade Deep Learning pipeline to automate this process. Using the **BraTS 2019 dataset**, it processes four MRI modalities (T1, T1ce, T2, FLAIR) to predict segmentation masks for tumor sub-regions. The system is engineered for scalability, featuring a modular codebase, containerized inference, and cloud deployment capabilities.
+This project implements a production-grade Deep Learning pipeline to automate this process. Using the **MSD Task01_BrainTumour dataset** (and compatible BraTS layouts), it processes four MRI modalities (T1, T1ce, T2, FLAIR) to predict segmentation masks for tumor sub-regions. The system is engineered for scalability, featuring a modular codebase, containerized inference, and cloud deployment capabilities.
 
 ## 🏗 System Architecture
 
@@ -84,13 +85,59 @@ brain-tumor-segmentation/
    pip install -r requirements.txt
    ```
 
-## 🚀 Usage (Training)
+## 🚀 3D Pipeline (Recommended)
+
+Install 3D dependencies:
+```bash
+pip install -r requirements-3d.txt
+```
+
+**1. Download the Data (MSD Task01):**
+```bash
+python scripts/download_msd_task01.py
+```
+
+**2. Train 3D U-Net:**
+```bash
+python -m src.train_3d --config configs/config_3d.yaml
+```
+
+**3. Evaluate 3D U-Net:**
+```bash
+python -m src.eval_3d --config configs/config_3d.yaml --weights outputs/runs/<timestamp>/best.pt
+```
+This writes `outputs/metrics_3d.json`.
+
+Example output format (placeholder until you run it):
+```json
+{
+  "dataset_format": "msd_task01",
+  "label_mode": "binary",
+  "val": { "dice_per_class": { "background": null }, "mean_dice": null },
+  "test": { "dice_per_class": { "background": null }, "mean_dice": null }
+}
+```
+
+## 🚀 2D Baseline (Optional)
 
 **1. Prepare the Data:**
-Convert raw BraTS NIfTI files into processed PNG slices.
+Download MSD Task01_BrainTumour and convert NIfTI volumes into PNG slices.
+```bash
+python scripts/download_msd_task01.py
+python -m src.data.prepare_slices \
+  --dataset-format msd_task01 \
+  --dataset-root data/raw/msd_task01/Task01_BrainTumour \
+  --output-root ./Dataset \
+  --slices-per-volume 20 \
+  --channel flair \
+  --label-mode binary
+```
+
+BraTS-compatible input is still supported:
 ```bash
 python -m src.data.prepare_slices \
-  --dataset-root /path/to/brats2019/MICCAI_BraTS_2019_Data_Training \
+  --dataset-format brats \
+  --dataset-root /path/to/brats_data \
   --output-root ./Dataset
 ```
 
@@ -101,9 +148,17 @@ python train.py --config configs/config.yaml --epochs 20
 ```
 *Artifacts (logs and weights) will be saved to `./outputs/`.*
 
+## ⚡ Quick Demo
+Run the API locally, upload a PNG slice, and save the predicted mask.
+
+```bash
+uvicorn src.service.api:app --host 0.0.0.0 --port 8080
+curl -F "file=@example.png" http://localhost:8080/predict -o mask.png
+```
+
 ## 🐳 Deployment (Docker & Vertex AI)
 
-The application is containerized for easy deployment to Google Cloud Platform (Vertex AI) or AWS ECS.
+The application is containerized for easy deployment. For multipart file uploads (`/predict`), Cloud Run is the simplest target.
 
 **1. Build the Docker Image:**
 ```bash
@@ -122,8 +177,35 @@ Once running, navigate to `http://localhost:8080/docs` to interact with the Swag
 *   **Input:** Single MRI slice (PNG/JPG)
 *   **Output:** Segmentation mask (PNG)
 
-<!-- ## 📊 Results
+**Vertex AI custom container usage:**
+Vertex AI requires JSON requests; use `POST /vertex/predict` with base64-encoded bytes.
+```bash
+curl -X POST "http://localhost:8080/vertex/predict" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "instances": [
+      {
+        "b64": "'"$(base64 -i /path/to/slice.png)"'"
+      }
+    ]
+  }'
+```
 
-*(Placeholder: Upload a side-by-side comparison image of "Input MRI" vs "Predicted Mask" to your repo and link it here)*
+## 📊 Results
+3D evaluation writes per-class Dice scores and mean Dice to `outputs/metrics_3d.json`.
+2D evaluation writes to `outputs/metrics.json`.
 
-Example: ![Results](assets/results_comparison.png) -->
+Example output format (placeholder until you run it):
+```json
+{
+  "dataset_format": "msd_task01",
+  "label_mode": "binary",
+  "val": { "dice_per_class": { "background": null }, "mean_dice": null },
+  "test": { "dice_per_class": { "background": null }, "mean_dice": null }
+}
+```
+
+**Assumptions:**
+- MSD Task01 channel order is assumed to be `[t1, t1ce, t2, flair]` when selecting `--channel`.
+- For binary masks, update `configs/config.yaml` to use two classes (e.g., `class_names: [background, tumor]`).
+ - Volume inference via API is not implemented yet. TODO: add a NIfTI endpoint for 3D inference.
