@@ -42,3 +42,4 @@ repository_dump.txt
 # Misc
 *.tmp
 *.swp
+smoke_dataset/
