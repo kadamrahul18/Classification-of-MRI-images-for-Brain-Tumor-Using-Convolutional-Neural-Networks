@@ -769,6 +769,8 @@ def build_dataloaders(cfg: Dict) -> Tuple[torch.utils.data.DataLoader, torch.uti
 
 
 def compute_dice(pred: torch.Tensor, target: torch.Tensor, include_background: bool) -> torch.Tensor:
+    if pred.shape[0] != target.shape[0]:
+        raise ValueError(f"Batch mismatch: pred {pred.shape} vs target {target.shape}")
     if target.ndim == 4:
         target = target.unsqueeze(1)
     if target.shape[1] != pred.shape[1]:
@@ -982,6 +984,8 @@ def main():
                     val_loss += loss_fn(logits, labels).item()
                     val_batches += 1
                     preds = post_pred(torch.softmax(logits, dim=1))
+                    if preds.ndim == 5:
+                        preds = preds.unsqueeze(0)
                     if debug_shapes and val_idx == 0:
                         logger.info(
                             "val shapes | images=%s labels=%s preds=%s",
