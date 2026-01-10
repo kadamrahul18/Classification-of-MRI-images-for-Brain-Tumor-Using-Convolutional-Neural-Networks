@@ -419,7 +419,6 @@ nibabel
 numpy
 opencv-python-headless
 pillow
-pyyaml
 SimpleITK
 tensorflow
 fastapi
@@ -430,6 +429,7 @@ pytest
 --- requirements-3d.txt ---
 torch
 monai
+pyyaml
 
 --- scripts/download_msd_task01.py ---
 import argparse

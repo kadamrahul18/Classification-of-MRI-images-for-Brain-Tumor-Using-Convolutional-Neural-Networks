@@ -6,7 +6,6 @@ nibabel
 numpy
 opencv-python-headless
 pillow
-pyyaml
 SimpleITK
 tensorflow
 fastapi
