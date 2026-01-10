@@ -151,6 +151,10 @@ def build_dataloaders(cfg: Dict) -> Tuple[torch.utils.data.DataLoader, torch.uti
 
 
 def compute_dice(pred: torch.Tensor, target: torch.Tensor, include_background: bool) -> torch.Tensor:
+    if target.shape[1] == 1 and pred.shape[1] > 1:
+        target = torch.nn.functional.one_hot(
+            target.long().squeeze(1), num_classes=pred.shape[1]
+        ).permute(0, 4, 1, 2, 3).float()
     dice_metric = DiceMetric(include_background=include_background, reduction="none")
     dice_metric(y_pred=pred, y=target)
     return dice_metric.aggregate()
