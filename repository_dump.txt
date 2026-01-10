@@ -599,6 +599,7 @@ training:
   log_interval: 20
   vis_interval: 10
   max_vis_cases: 3
+  debug_shapes: false
 
 inference:
   roi_size: [96, 96, 96]
@@ -768,12 +769,14 @@ def build_dataloaders(cfg: Dict) -> Tuple[torch.utils.data.DataLoader, torch.uti
 
 
 def compute_dice(pred: torch.Tensor, target: torch.Tensor, include_background: bool) -> torch.Tensor:
-    if target.shape[1] == 1 or target.shape[1] != pred.shape[1]:
-        if target.shape[1] > 1:
-            target = torch.argmax(target, dim=1, keepdim=True)
+    if target.ndim == 4:
+        target = target.unsqueeze(1)
+    if target.shape[1] != pred.shape[1]:
+        target = torch.argmax(target, dim=1, keepdim=True)
         target = torch.nn.functional.one_hot(
             target.long().squeeze(1), num_classes=pred.shape[1]
         ).permute(0, 4, 1, 2, 3).float()
+    target = target.to(pred.device)
     dice_metric = DiceMetric(include_background=include_background, reduction="none")
     dice_metric(y_pred=pred, y=target)
     return dice_metric.aggregate()
@@ -968,6 +971,7 @@ def main():
             dice_per_class: List[np.ndarray] = []
             val_loss = 0.0
             val_batches = 0
+            debug_shapes = cfg["training"].get("debug_shapes", False)
             with torch.no_grad():
                 for val_idx, (images, labels) in enumerate(val_loader):
                     if cfg["training"].get("limit_val_batches") and val_idx >= cfg["training"]["limit_val_batches"]:
@@ -978,6 +982,13 @@ def main():
                     val_loss += loss_fn(logits, labels).item()
                     val_batches += 1
                     preds = post_pred(torch.softmax(logits, dim=1))
+                    if debug_shapes and val_idx == 0:
+                        logger.info(
+                            "val shapes | images=%s labels=%s preds=%s",
+                            tuple(images.shape),
+                            tuple(labels.shape),
+                            tuple(preds.shape),
+                        )
                     dice = compute_dice(preds, labels, include_background=True)
                     dice_scores.append(dice.mean().item())
                     dice_per_class.append(dice.mean(dim=0).cpu().numpy())

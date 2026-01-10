@@ -35,6 +35,7 @@ training:
   log_interval: 20
   vis_interval: 10
   max_vis_cases: 3
+  debug_shapes: false
 
 inference:
   roi_size: [96, 96, 96]
