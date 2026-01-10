@@ -742,7 +742,7 @@ def main():
         include_background=True,
     )
     optimizer = torch.optim.Adam(model.parameters(), lr=cfg["training"]["learning_rate"])
-    scaler = torch.cuda.amp.GradScaler(enabled=torch.cuda.is_available())
+    scaler = torch.amp.GradScaler("cuda", enabled=torch.cuda.is_available())
     post_pred = AsDiscrete(argmax=True, to_onehot=num_classes)
 
     train_loader, val_loader = build_dataloaders(cfg)
@@ -763,7 +763,7 @@ def main():
                 images = images.to(device)
                 labels = labels.to(device)
                 optimizer.zero_grad(set_to_none=True)
-                with torch.cuda.amp.autocast(enabled=torch.cuda.is_available()):
+                with torch.autocast(device_type=device.type, enabled=torch.cuda.is_available()):
                     logits = model(images)
                     loss = loss_fn(logits, labels)
                 scaler.scale(loss).backward()
@@ -1724,8 +1724,12 @@ def list_msd_task01_cases(dataset_root: Path) -> List[Tuple[Path, Path]]:
     labels_dir = dataset_root / "labelsTr"
     if not images_dir.exists() or not labels_dir.exists():
         raise FileNotFoundError("Expected imagesTr/ and labelsTr/ in MSD Task01 root")
-    images = sorted(images_dir.glob("*.nii.gz"))
-    labels = {p.stem.replace(".nii", ""): p for p in labels_dir.glob("*.nii.gz")}
+    images = sorted(p for p in images_dir.glob("*.nii.gz") if not p.name.startswith("._"))
+    labels = {
+        p.stem.replace(".nii", ""): p
+        for p in labels_dir.glob("*.nii.gz")
+        if not p.name.startswith("._")
+    }
     pairs = []
     for image_path in images:
         key = image_path.stem.replace(".nii", "")

@@ -12,8 +12,12 @@ def list_msd_task01_cases(dataset_root: Path) -> List[Tuple[Path, Path]]:
     labels_dir = dataset_root / "labelsTr"
     if not images_dir.exists() or not labels_dir.exists():
         raise FileNotFoundError("Expected imagesTr/ and labelsTr/ in MSD Task01 root")
-    images = sorted(images_dir.glob("*.nii.gz"))
-    labels = {p.stem.replace(".nii", ""): p for p in labels_dir.glob("*.nii.gz")}
+    images = sorted(p for p in images_dir.glob("*.nii.gz") if not p.name.startswith("._"))
+    labels = {
+        p.stem.replace(".nii", ""): p
+        for p in labels_dir.glob("*.nii.gz")
+        if not p.name.startswith("._")
+    }
     pairs = []
     for image_path in images:
         key = image_path.stem.replace(".nii", "")

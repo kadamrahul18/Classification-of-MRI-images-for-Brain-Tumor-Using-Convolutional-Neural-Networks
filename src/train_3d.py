@@ -152,7 +152,7 @@ def main():
         include_background=True,
     )
     optimizer = torch.optim.Adam(model.parameters(), lr=cfg["training"]["learning_rate"])
-    scaler = torch.cuda.amp.GradScaler(enabled=torch.cuda.is_available())
+    scaler = torch.amp.GradScaler("cuda", enabled=torch.cuda.is_available())
     post_pred = AsDiscrete(argmax=True, to_onehot=num_classes)
 
     train_loader, val_loader = build_dataloaders(cfg)
@@ -173,7 +173,7 @@ def main():
                 images = images.to(device)
                 labels = labels.to(device)
                 optimizer.zero_grad(set_to_none=True)
-                with torch.cuda.amp.autocast(enabled=torch.cuda.is_available()):
+                with torch.autocast(device_type=device.type, enabled=torch.cuda.is_available()):
                     logits = model(images)
                     loss = loss_fn(logits, labels)
                 scaler.scale(loss).backward()
