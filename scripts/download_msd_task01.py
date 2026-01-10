@@ -1,4 +1,5 @@
 import argparse
+import sys
 import tarfile
 import urllib.request
 from pathlib import Path
@@ -19,18 +20,35 @@ def parse_args():
     return parser.parse_args()
 
 
+def _download_progress(blocks: int, block_size: int, total_size: int):
+    if total_size <= 0:
+        return
+    downloaded = min(blocks * block_size, total_size)
+    percent = downloaded / total_size * 100
+    sys.stdout.write(f"\rDownloading: {percent:5.1f}%")
+    sys.stdout.flush()
+
+
 def download_file(url: str, dest: Path):
     dest.parent.mkdir(parents=True, exist_ok=True)
     if dest.exists():
         return
     print(f"Downloading {url} to {dest}")
-    urllib.request.urlretrieve(url, dest)
+    urllib.request.urlretrieve(url, dest, reporthook=_download_progress)
+    sys.stdout.write("\n")
 
 
 def extract_archive(archive_path: Path, output_dir: Path):
     print(f"Extracting {archive_path} to {output_dir}")
     with tarfile.open(archive_path, "r:*") as tar:
-        tar.extractall(path=output_dir)
+        members = tar.getmembers()
+        total = len(members)
+        for idx, member in enumerate(members, start=1):
+            tar.extract(member, path=output_dir)
+            percent = idx / total * 100
+            sys.stdout.write(f"\rExtracting: {percent:5.1f}%")
+            sys.stdout.flush()
+    sys.stdout.write("\n")
 
 
 def main():
