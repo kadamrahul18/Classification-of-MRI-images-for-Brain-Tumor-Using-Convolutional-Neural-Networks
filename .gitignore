@@ -28,6 +28,7 @@ dist/
 
 # TensorBoard / checkpoints / outputs
 outputs/
+outputs/runs/
 logs/
 
 # Weights and datasets

@@ -118,6 +118,14 @@ Example output format (placeholder until you run it):
 }
 ```
 
+## 📈 Monitoring
+Launch TensorBoard:
+```bash
+tensorboard --logdir outputs/runs
+```
+Logged scalars include `loss/train`, `loss/val`, `dice_mean/val`, `lr`, and `gpu_mem_max_mb` (when CUDA is available).
+Every `vis_interval` epochs, the run also writes `vis/epoch_XX/` PNGs (input/gt/pred/overlay) and logs overlay grids to TensorBoard.
+
 ## 🚀 2D Baseline (Optional)
 
 **1. Prepare the Data:**
