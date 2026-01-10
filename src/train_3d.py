@@ -260,7 +260,7 @@ def main():
     post_pred = AsDiscrete(argmax=True, to_onehot=num_classes)
 
     train_loader, val_loader = build_dataloaders(cfg)
-    log_interval = cfg["training"].get("log_interval", 10)
+    log_interval = cfg["training"].get("log_interval", 0)
     vis_interval = cfg["training"].get("vis_interval", 5)
     max_vis_cases = cfg["training"].get("max_vis_cases", 3)
     logger.info("Train batches per epoch: %s | Val batches: %s", len(train_loader), len(val_loader))
@@ -297,7 +297,7 @@ def main():
                 scaler.update()
                 train_loss += loss.item()
                 batch_count += 1
-                if batch_idx % log_interval == 0:
+                if log_interval and batch_idx % log_interval == 0:
                     logger.info(
                         "  train step %s/%s loss=%.4f",
                         batch_idx + 1,
@@ -325,7 +325,7 @@ def main():
                     dice = compute_dice(preds, labels, include_background=True)
                     dice_scores.append(dice.mean().item())
                     dice_per_class.append(dice.mean(dim=0).cpu().numpy())
-                    if val_idx % log_interval == 0:
+                    if log_interval and val_idx % log_interval == 0:
                         logger.info(
                             "  val step %s/%s mean_dice=%.4f",
                             val_idx + 1,
@@ -350,6 +350,20 @@ def main():
             if torch.cuda.is_available():
                 gpu_mem = torch.cuda.max_memory_allocated() / (1024**2)
                 tb_writer.add_scalar("gpu_mem_max_mb", gpu_mem, epoch + 1)
+
+            if torch.cuda.is_available():
+                gpu_mem = torch.cuda.max_memory_allocated() / (1024**2)
+            else:
+                gpu_mem = 0.0
+            logger.info(
+                "Epoch %s summary | train_loss=%.4f val_loss=%.4f val_mean_dice=%.4f lr=%.6f gpu_mem_max_mb=%.1f",
+                epoch + 1,
+                train_loss,
+                val_loss,
+                val_mean_dice,
+                lr,
+                gpu_mem,
+            )
 
             if val_mean_dice > best_dice:
                 best_dice = val_mean_dice

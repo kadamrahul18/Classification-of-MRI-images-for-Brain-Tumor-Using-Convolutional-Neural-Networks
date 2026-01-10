@@ -32,7 +32,7 @@ training:
   output_dir: ./outputs/runs
   limit_train_batches: null
   limit_val_batches: null
-  log_interval: 10
+  log_interval: 0
   vis_interval: 5
   max_vis_cases: 3
 
