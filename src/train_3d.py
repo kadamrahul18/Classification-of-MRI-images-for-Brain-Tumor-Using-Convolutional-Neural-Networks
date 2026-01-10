@@ -151,7 +151,9 @@ def build_dataloaders(cfg: Dict) -> Tuple[torch.utils.data.DataLoader, torch.uti
 
 
 def compute_dice(pred: torch.Tensor, target: torch.Tensor, include_background: bool) -> torch.Tensor:
-    if target.shape[1] == 1 and pred.shape[1] > 1:
+    if target.shape[1] == 1 or target.shape[1] != pred.shape[1]:
+        if target.shape[1] > 1:
+            target = torch.argmax(target, dim=1, keepdim=True)
         target = torch.nn.functional.one_hot(
             target.long().squeeze(1), num_classes=pred.shape[1]
         ).permute(0, 4, 1, 2, 3).float()
