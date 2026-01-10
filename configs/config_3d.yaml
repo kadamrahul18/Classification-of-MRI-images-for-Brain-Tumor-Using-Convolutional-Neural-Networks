@@ -11,32 +11,32 @@ data:
     test: null
   label_mode: binary
   class_names: [background, tumor]
-  roi_size: [128, 128, 128]
+  roi_size: [96, 96, 96]
   pos_ratio: 0.7
   percentiles: [0.5, 99.5]
 
 model:
   in_channels: 4
-  channels: [16, 32, 64, 128, 256]
+  channels: [16, 32, 64, 128, 128]
   strides: [2, 2, 2, 2]
-  num_res_units: 2
-  norm: batch
+  num_res_units: 1
+  norm: instance
 
 training:
   batch_size: 1
   learning_rate: 0.0001
-  max_epochs: 100
-  num_workers: 2
+  max_epochs: 30
+  num_workers: 8
   seed: 42
   deterministic: false
   output_dir: ./outputs/runs
-  limit_train_batches: null
-  limit_val_batches: null
-  log_interval: 0
-  vis_interval: 5
+  limit_train_batches: 150
+  limit_val_batches: 20
+  log_interval: 20
+  vis_interval: 10
   max_vis_cases: 3
 
 inference:
-  roi_size: [128, 128, 128]
+  roi_size: [96, 96, 96]
   overlap: 0.5
   sw_batch_size: 2

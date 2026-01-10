@@ -3,6 +3,8 @@ import csv
 import json
 import random
 import logging
+import os
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Tuple
@@ -123,17 +125,27 @@ def build_dataloaders(cfg: Dict) -> Tuple[torch.utils.data.DataLoader, torch.uti
         seed=data_cfg.get("seed", 42),
     )
 
+    num_workers = cfg["training"]["num_workers"]
+    pin_memory = torch.cuda.is_available()
+    loader_kwargs = {
+        "num_workers": num_workers,
+        "pin_memory": pin_memory,
+        "persistent_workers": num_workers > 0,
+    }
+    if num_workers > 0:
+        loader_kwargs["prefetch_factor"] = 2
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
         batch_size=cfg["training"]["batch_size"],
         shuffle=True,
-        num_workers=cfg["training"]["num_workers"],
+        drop_last=True,
+        **loader_kwargs,
     )
     val_loader = torch.utils.data.DataLoader(
         val_dataset,
         batch_size=cfg["training"]["batch_size"],
         shuffle=False,
-        num_workers=cfg["training"]["num_workers"],
+        **loader_kwargs,
     )
     return train_loader, val_loader
 
@@ -265,9 +277,21 @@ def main():
     max_vis_cases = cfg["training"].get("max_vis_cases", 3)
     logger.info("Train batches per epoch: %s | Val batches: %s", len(train_loader), len(val_loader))
     logger.info("Using device: %s", device)
+    logger.info("ROI size: %s", data_cfg.get("roi_size"))
+    logger.info("num_workers: %s", cfg["training"]["num_workers"])
+    logger.info(
+        "limit_train_batches: %s | limit_val_batches: %s",
+        cfg["training"].get("limit_train_batches"),
+        cfg["training"].get("limit_val_batches"),
+    )
     if torch.cuda.is_available():
         logger.info("GPU name: %s", torch.cuda.get_device_name(0))
         logger.info("CUDA capability: %s", torch.cuda.get_device_capability(0))
+    logger.info("AMP enabled: %s", torch.cuda.is_available())
+    if "OMP_NUM_THREADS" not in os.environ or "MKL_NUM_THREADS" not in os.environ:
+        logger.warning(
+            "For best throughput set: OMP_NUM_THREADS=1 and MKL_NUM_THREADS=1"
+        )
 
     best_dice = -1.0
     metrics_path = run_dir / "metrics.csv"
@@ -283,11 +307,14 @@ def main():
             model.train()
             train_loss = 0.0
             batch_count = 0
+            step_time = 0.0
+            step_window = 0
             for batch_idx, (images, labels) in enumerate(train_loader):
                 if cfg["training"].get("limit_train_batches") and batch_idx >= cfg["training"]["limit_train_batches"]:
                     break
-                images = images.to(device)
-                labels = labels.to(device)
+                start = time.perf_counter()
+                images = images.to(device, non_blocking=True)
+                labels = labels.to(device, non_blocking=True)
                 optimizer.zero_grad(set_to_none=True)
                 with torch.autocast(device_type=device.type, enabled=torch.cuda.is_available()):
                     logits = model(images)
@@ -297,13 +324,19 @@ def main():
                 scaler.update()
                 train_loss += loss.item()
                 batch_count += 1
+                step_time += time.perf_counter() - start
+                step_window += 1
                 if log_interval and batch_idx % log_interval == 0:
+                    avg_step = step_time / max(1, step_window)
                     logger.info(
-                        "  train step %s/%s loss=%.4f",
+                        "  train step %s/%s loss=%.4f avg_step=%.3fs",
                         batch_idx + 1,
                         len(train_loader),
                         loss.item(),
+                        avg_step,
                     )
+                    step_time = 0.0
+                    step_window = 0
 
             train_loss /= max(1, batch_count)
 

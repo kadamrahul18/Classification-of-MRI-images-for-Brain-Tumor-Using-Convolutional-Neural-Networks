@@ -126,6 +126,19 @@ tensorboard --logdir outputs/runs
 Logged scalars include `loss/train`, `loss/val`, `dice_mean/val`, `lr`, and `gpu_mem_max_mb` (when CUDA is available).
 Every `vis_interval` epochs, the run also writes `vis/epoch_XX/` PNGs (input/gt/pred/overlay) and logs overlay grids to TensorBoard.
 
+## ⚡ Speed tuning (V100)
+- Reduce ROI size (`96^3`) to improve throughput; larger ROI improves context but slows training.
+- Increase `training.num_workers` (start at 8 on 16 CPUs) to reduce data loading stalls.
+- Recommended CPU thread caps:
+  ```bash
+  export OMP_NUM_THREADS=1
+  export MKL_NUM_THREADS=1
+  ```
+- Monitor GPU utilization:
+  ```bash
+  nvidia-smi -l 1
+  ```
+
 ## 🚀 2D Baseline (Optional)
 
 **1. Prepare the Data:**
