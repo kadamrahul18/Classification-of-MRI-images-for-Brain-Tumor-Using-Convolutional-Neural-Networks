@@ -341,7 +341,7 @@ def main():
     loss_fn = DiceCELoss(
         to_onehot_y=False,
         softmax=True,
-        include_background=True,
+        include_background=False,
     )
     optimizer = torch.optim.Adam(model.parameters(), lr=cfg["training"]["learning_rate"])
     scaler = torch.amp.GradScaler("cuda", enabled=torch.cuda.is_available())
