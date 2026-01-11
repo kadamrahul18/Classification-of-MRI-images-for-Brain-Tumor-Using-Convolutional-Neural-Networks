@@ -1391,9 +1391,7 @@ import numpy as np
 import torch
 import yaml
 from monai.inferers import sliding_window_inference
-from monai.metrics import DiceMetric
 from monai.networks.nets import UNet
-from monai.transforms import AsDiscrete
 
 from src.data.msd_task01_3d import MSDTask01Dataset3D, build_splits, list_msd_task01_cases
 
@@ -1436,6 +1434,34 @@ def get_git_hash() -> str:
         return ""
 
 
+def _ensure_5d(tensor: torch.Tensor, name: str) -> torch.Tensor:
+    if tensor.ndim == 4:
+        return tensor.unsqueeze(0)
+    if tensor.ndim == 5:
+        return tensor
+    raise ValueError(f"{name} has unexpected shape {tuple(tensor.shape)}")
+
+
+def _compute_dice(pred: torch.Tensor, target: torch.Tensor, include_background: bool) -> torch.Tensor:
+    pred = _ensure_5d(pred, "pred")
+    target = _ensure_5d(target, "target")
+    if target.shape[1] != pred.shape[1]:
+        target = torch.argmax(target, dim=1, keepdim=True)
+        target = torch.nn.functional.one_hot(
+            target.long().squeeze(1), num_classes=pred.shape[1]
+        ).permute(0, 4, 1, 2, 3).float()
+    target = target.to(pred.device)
+    pred = pred.float()
+    target = target.float()
+    if not include_background and pred.shape[1] > 1:
+        pred = pred[:, 1:]
+        target = target[:, 1:]
+    intersection = (pred * target).sum(dim=(2, 3, 4))
+    denom = pred.sum(dim=(2, 3, 4)) + target.sum(dim=(2, 3, 4))
+    dice = torch.where(denom > 0, (2.0 * intersection) / denom, torch.ones_like(denom))
+    return dice.mean(dim=0)
+
+
 def evaluate_split(
     model: torch.nn.Module,
     dataset: torch.utils.data.Dataset,
@@ -1446,8 +1472,6 @@ def evaluate_split(
     num_classes: int,
 ) -> Tuple[List[float], int]:
     model.eval()
-    post_pred = AsDiscrete(argmax=True, to_onehot=num_classes)
-    dice_metric = DiceMetric(include_background=True, reduction="none")
 
     dice_scores = []
     with torch.no_grad():
@@ -1457,11 +1481,12 @@ def evaluate_split(
             logits = sliding_window_inference(
                 image, roi_size=roi_size, sw_batch_size=sw_batch_size, predictor=model, overlap=overlap
             )
-            pred = post_pred(torch.softmax(logits, dim=1))
-            dice_metric(y_pred=pred, y=label)
-            dice = dice_metric.aggregate()
+            pred_labels = torch.argmax(logits, dim=1, keepdim=True)
+            pred = torch.nn.functional.one_hot(
+                pred_labels.squeeze(1), num_classes=num_classes
+            ).permute(0, 4, 1, 2, 3).float()
+            dice = _compute_dice(pred, label, include_background=True)
             dice_scores.append(dice.cpu().numpy())
-            dice_metric.reset()
 
     if not dice_scores:
         return [0.0] * num_classes, 0
@@ -1563,6 +1588,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 --- src/utils/__init__.py ---
 
