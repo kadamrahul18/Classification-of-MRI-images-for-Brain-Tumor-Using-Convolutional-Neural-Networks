@@ -196,10 +196,15 @@ def _validate_labels(labels: torch.Tensor, num_classes: int) -> None:
         raise ValueError("Labels must be one-hot encoded (sum across channels = 1).")
 
 
-def _pred_to_onehot(logits: torch.Tensor, num_classes: int, is_binary: bool) -> torch.Tensor:
+def _pred_to_onehot(
+    logits: torch.Tensor,
+    num_classes: int,
+    is_binary: bool,
+    threshold: float = 0.5,
+) -> torch.Tensor:
     if is_binary:
         probs = torch.sigmoid(logits)
-        pred = (probs > 0.5).float()
+        pred = (probs > threshold).float()
         if pred.shape[1] == 1 and num_classes == 2:
             pred = torch.cat([1.0 - pred, pred], dim=1)
         return pred
@@ -375,6 +380,7 @@ def main():
         logger.info("GPU name: %s", torch.cuda.get_device_name(0))
         logger.info("CUDA capability: %s", torch.cuda.get_device_capability(0))
     logger.info("AMP enabled: %s", torch.cuda.is_available())
+    logger.info("prediction_threshold: %s", cfg["training"].get("prediction_threshold", 0.5))
     if "OMP_NUM_THREADS" not in os.environ or "MKL_NUM_THREADS" not in os.environ:
         logger.warning(
             "For best throughput set: OMP_NUM_THREADS=1 and MKL_NUM_THREADS=1"
@@ -436,7 +442,7 @@ def main():
                 train_loss += loss.item()
                 batch_count += 1
                 total_batches += 1
-                preds = _pred_to_onehot(logits, num_classes, is_binary)
+                preds = _pred_to_onehot(logits, num_classes, is_binary, cfg["training"].get("prediction_threshold", 0.5))
                 if _foreground_mask(labels).any():
                     pos_batches += 1
                     pos_tumor_fracs.append(_foreground_mask(labels).float().mean().item())
@@ -484,7 +490,7 @@ def main():
                     logits = model(images)
                     val_loss += loss_fn(logits, labels).item()
                     val_batches += 1
-                    preds = _pred_to_onehot(logits, num_classes, is_binary)
+                    preds = _pred_to_onehot(logits, num_classes, is_binary, cfg["training"].get("prediction_threshold", 0.5))
                     if debug_shapes and val_idx == 0:
                         logger.info(
                             "val shapes | images=%s labels=%s logits=%s preds=%s",
