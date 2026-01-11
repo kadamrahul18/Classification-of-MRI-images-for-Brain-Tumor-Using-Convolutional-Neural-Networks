@@ -405,6 +405,7 @@ def main():
             step_window = 0
             pos_batches = 0
             total_batches = 0
+            pos_tumor_fracs: List[float] = []
             logged_device = False
             for batch_idx, (images, labels) in enumerate(train_loader):
                 if cfg["training"].get("limit_train_batches") and batch_idx >= cfg["training"]["limit_train_batches"]:
@@ -429,6 +430,7 @@ def main():
                 preds = _pred_to_onehot(logits, num_classes)
                 if _foreground_mask(labels).any():
                     pos_batches += 1
+                    pos_tumor_fracs.append(_foreground_mask(labels).float().mean().item())
                 step_time += time.perf_counter() - start
                 step_window += 1
                 if global_step < log_sanity_steps or batch_idx == 0:
@@ -450,6 +452,10 @@ def main():
             observed_pos_ratio = pos_batches / max(1, total_batches)
             logger.info("Observed train pos_ratio (patches w/ tumor): %.3f", observed_pos_ratio)
             tb_writer.add_scalar("data/pos_ratio", observed_pos_ratio, epoch + 1)
+            if pos_tumor_fracs:
+                median_pos_frac = float(np.median(pos_tumor_fracs))
+                logger.info("Median tumor_voxel_frac (pos patches): %.6f", median_pos_frac)
+                tb_writer.add_scalar("data/median_tumor_frac_pos", median_pos_frac, epoch + 1)
 
             model.eval()
             dice_scores: List[float] = []
