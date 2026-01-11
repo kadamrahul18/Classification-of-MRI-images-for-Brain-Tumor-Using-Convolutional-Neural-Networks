@@ -43,9 +43,9 @@ python scripts/make_readme_figures.py --run-dir outputs/runs/<run_id>
 
 The baseline config uses **limited epochs/batches** to keep runtime under ~2 hours on a V100.
 
-| GPU | ROI | Epochs | Best Epoch | Tumor Dice | Foreground Dice | Dataset Split |
-| --- | --- | ------ | ---------- | ---------- | ---------------- | ------------- |
-| Tesla V100-SXM2-16GB | 96³ | 20 | 19 | 0.2816 | 0.2816 | 70/20/10 |
+| GPU | ROI | Epochs | Best Epoch | Tumor Dice | Foreground Dice | Mean Dice | Background Dice | Dataset Split |
+| --- | --- | ------ | ---------- | ---------- | ---------------- | --------- | --------------- | ------------- |
+| Tesla V100-SXM2-16GB | 96³ | 20 | 19 | 0.2816 | 0.2816 | 0.5511 | 0.9445 | 70/20/10 |
 
 ![Baseline Examples](docs/assets/baseline_examples.png)
 ![Baseline Curves](docs/assets/baseline_curves.png)
