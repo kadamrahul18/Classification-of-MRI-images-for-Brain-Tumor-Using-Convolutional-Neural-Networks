@@ -1,89 +1,49 @@
 File structure:
-- .gitignore
+- .DS_Store
 - .dockerignore
 - .github/workflows/ci.yml
-- README.md
+- .gitignore
 - AGENTS.md
 - Dockerfile
-- requirements.txt
-- requirements-3d.txt
-- scripts/download_msd_task01.py
-- tests/test_smoke_pipeline.py
-- tests/test_smoke_3d_pipeline.py
+- README.md
+- brain-tumor-run/config_3d.yaml
+- brain-tumor-run/events.out.tfevents.1768103610.gn-0018.1738568.0
+- brain-tumor-run/gpu.log
+- brain-tumor-run/metrics.csv
+- brain-tumor-run/metrics_3d.json
+- brain-tumor-run/train.log
+- brain-tumor-run/train_config_resolved.yaml
 - configs/config.yaml
 - configs/config_3d.yaml
-- train.py
+- repository_dump.txt
+- requirements-3d.txt
+- requirements.txt
+- scripts/download_msd_task01.py
+- src/.DS_Store
 - src/__init__.py
-- src/eval.py
-- src/eval_3d.py
-- src/utils/__init__.py
-- src/utils/config.py
 - src/data/__init__.py
 - src/data/augmentations.py
-- src/data/dataset.py
-- src/data/prepare_slices.py
-- src/data/msd_task01_3d.py
 - src/data/bias_correction.py
+- src/data/dataset.py
+- src/data/msd_task01_3d.py
+- src/data/prepare_slices.py
+- src/eval.py
+- src/eval_3d.py
 - src/models/__init__.py
 - src/models/unet.py
-- src/training/__init__.py
-- src/training/train.py
-- src/train_3d.py
 - src/service/__init__.py
 - src/service/api.py
-- smoke_dataset/train_frames/train/slice_000.png
-- smoke_dataset/train_masks/train/slice_000.png
-- smoke_dataset/val_frames/val/slice_001.png
-- smoke_dataset/val_masks/val/slice_001.png
-- smoke_dataset/test_frames/test/slice_002.png
-- smoke_dataset/test_masks/test/slice_002.png
+- src/train_3d.py
+- src/training/__init__.py
+- src/training/train.py
+- src/utils/__init__.py
+- src/utils/config.py
+- tests/test_smoke_3d_pipeline.py
+- tests/test_smoke_pipeline.py
+- train.py
 
---- .gitignore ---
-# Byte-compiled / optimized / DLL files
-__pycache__/
-*.py[cod]
-*.pyo
-*.pyd
-*.so
-.Python
-
-# Virtual environments
-.venv/
-venv/
-env/
-
-# Distribution / packaging
-build/
-dist/
-*.egg-info/
-*.egg
-
-# IDE / editor
-.DS_Store
-.idea/
-.vscode/
-
-# Logs and cache
-*.log
-.pytest_cache/
-
-# TensorBoard / checkpoints / outputs
-outputs/
-outputs/runs/
-logs/
-
-# Weights and datasets
-weights/
-Dataset/
-/data/
-repository_dump.txt
-
-# Docker
-*.pid
-
-# Misc
-*.tmp
-*.swp
+--- .DS_Store ---
+(binary file, contents omitted)
 
 --- .dockerignore ---
 Dataset/
@@ -127,6 +87,124 @@ jobs:
 
       - name: Run tests
         run: pytest -q
+
+--- .gitignore ---
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+.Python
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+*.egg
+
+# IDE / editor
+.DS_Store
+.idea/
+.vscode/
+
+# Logs and cache
+*.log
+.pytest_cache/
+
+# TensorBoard / checkpoints / outputs
+outputs/
+outputs/runs/
+brain-tumor-run/
+logs/
+
+# Weights and datasets
+weights/
+Dataset/
+/data/
+repository_dump.txt
+
+# Docker
+*.pid
+
+# Misc
+*.tmp
+*.swp
+smoke_dataset/
+
+--- AGENTS.md ---
+# Repository Guidelines
+
+## Project Structure & Module Organization
+- `src/` houses the core package.
+  - `src/data/` preprocessing and dataset utilities (bias correction, slice prep, augmentations).
+  - `src/models/` model definitions (U-Net).
+  - `src/training/` training entrypoints and loops.
+  - `src/service/` FastAPI inference service.
+  - `src/utils/` config helpers.
+- `configs/config.yaml` is the primary runtime configuration.
+- `train.py` is the top-level training entrypoint.
+- `requirements.txt` and `Dockerfile` define dependencies and container runtime.
+- `Dataset/`, `weights/`, `outputs/`, and `logs/` are ignored and used for data, checkpoints, and artifacts.
+
+## Build, Test, and Development Commands
+- Install deps: `pip install -r requirements.txt`.
+- Prepare slices: `python -m src.data.prepare_slices --dataset-root /path/to/brats2019 --output-root ./Dataset`.
+- Optional bias correction: `python -m src.data.bias_correction --input-dir /path/to/brats2019 --output-dir /path/to/brats2019_preprocessed`.
+- Train: `python train.py --config configs/config.yaml --data-root ./Dataset`.
+- Run API (local): `uvicorn src.service.api:app --host 0.0.0.0 --port 8080`.
+- Build container: `docker build -t brain-seg:latest .`.
+
+## Coding Style & Naming Conventions
+- Python code uses 4-space indentation and PEP 8-style naming (modules/functions `snake_case`, classes `CamelCase`).
+- Keep filenames descriptive and colocate utilities with their domains (e.g., `src/data/*`).
+- No formatter or linter is configured; keep changes minimal and readable.
+
+## Testing Guidelines
+- No automated test suite is present.
+- If adding tests, document the framework and add a clear command in this file and `README.md`.
+
+## Commit & Pull Request Guidelines
+- Git history does not show a strict convention; use concise, descriptive commit messages (e.g., “add bias correction CLI flags”).
+- PRs should include: a summary, linked issue (if any), and example commands or screenshots for user-facing changes (e.g., API responses).
+
+## Configuration & Runtime Notes
+- All runtime parameters live in `configs/config.yaml`; prefer config changes over hard-coded values.
+- Model outputs and logs default to `./outputs/` (see `training` config). Keep large artifacts out of git.
+
+--- Dockerfile ---
+# Lightweight production image for FastAPI inference
+FROM python:3.9-slim
+
+# Prevent Python from buffering stdout/stderr and writing .pyc files
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+# System dependencies for OpenCV
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+ && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY . .
+
+# Expose port for Vertex AI
+EXPOSE 8080
+
+# Start FastAPI with uvicorn
+CMD ["uvicorn", "src.service.api:app", "--host", "0.0.0.0", "--port", "8080"]
 
 --- README.md ---
 # Brain Tumor Segmentation Pipeline (MSD Task01 + BraTS-compatible)
@@ -346,14 +424,23 @@ curl -X POST "http://localhost:8080/vertex/predict" \
 ## 📊 Results
 3D evaluation writes per-class Dice scores and mean Dice to `outputs/metrics_3d.json`.
 2D evaluation writes to `outputs/metrics.json`.
+Per-epoch training metrics (including per-class Dice) are saved to `outputs/runs/<run>/metrics_per_epoch.json`.
 
 Example output format (placeholder until you run it):
 ```json
 {
   "dataset_format": "msd_task01",
   "label_mode": "binary",
-  "val": { "dice_per_class": { "background": null }, "mean_dice": null },
-  "test": { "dice_per_class": { "background": null }, "mean_dice": null }
+  "val": {
+    "dice_per_class": { "background": null, "tumor": null },
+    "mean_dice": null,
+    "foreground_mean_dice": null
+  },
+  "test": {
+    "dice_per_class": { "background": null, "tumor": null },
+    "mean_dice": null,
+    "foreground_mean_dice": null
+  }
 }
 ```
 
@@ -362,75 +449,648 @@ Example output format (placeholder until you run it):
 - For binary masks, update `configs/config.yaml` to use two classes (e.g., `class_names: [background, tumor]`).
  - Volume inference via API is not implemented yet. TODO: add a NIfTI endpoint for 3D inference.
 
+**Metric conventions (3D):**
+- Per-class Dice is always reported (including background).
+- Foreground/tumor Dice ignores empty-ground-truth volumes/patches (`ignore_empty_foreground: true` by default).
+- Best checkpoint selection uses foreground Dice (not background-inflated mean).
 
---- AGENTS.md ---
-# Repository Guidelines
+--- brain-tumor-run/config_3d.yaml ---
+# 3D pipeline configuration for MSD Task01_BrainTumour
 
-## Project Structure & Module Organization
-- `src/` houses the core package.
-  - `src/data/` preprocessing and dataset utilities (bias correction, slice prep, augmentations).
-  - `src/models/` model definitions (U-Net).
-  - `src/training/` training entrypoints and loops.
-  - `src/service/` FastAPI inference service.
-  - `src/utils/` config helpers.
-- `configs/config.yaml` is the primary runtime configuration.
-- `train.py` is the top-level training entrypoint.
-- `requirements.txt` and `Dockerfile` define dependencies and container runtime.
-- `Dataset/`, `weights/`, `outputs/`, and `logs/` are ignored and used for data, checkpoints, and artifacts.
+data:
+  root: ./data/raw/msd_task01/Task01_BrainTumour
+  train_ratio: 0.7
+  val_ratio: 0.2
+  seed: 42
+  list_files:
+    train: null
+    val: null
+    test: null
+  label_mode: binary
+  class_names: [background, tumor]
+  roi_size: [96, 96, 96]
+  pos_ratio: 0.7
+  percentiles: [0.5, 99.5]
 
-## Build, Test, and Development Commands
-- Install deps: `pip install -r requirements.txt`.
-- Prepare slices: `python -m src.data.prepare_slices --dataset-root /path/to/brats2019 --output-root ./Dataset`.
-- Optional bias correction: `python -m src.data.bias_correction --input-dir /path/to/brats2019 --output-dir /path/to/brats2019_preprocessed`.
-- Train: `python train.py --config configs/config.yaml --data-root ./Dataset`.
-- Run API (local): `uvicorn src.service.api:app --host 0.0.0.0 --port 8080`.
-- Build container: `docker build -t brain-seg:latest .`.
+model:
+  in_channels: 4
+  channels: [16, 32, 64, 128, 128]
+  strides: [2, 2, 2, 2]
+  num_res_units: 1
+  norm: instance
 
-## Coding Style & Naming Conventions
-- Python code uses 4-space indentation and PEP 8-style naming (modules/functions `snake_case`, classes `CamelCase`).
-- Keep filenames descriptive and colocate utilities with their domains (e.g., `src/data/*`).
-- No formatter or linter is configured; keep changes minimal and readable.
+training:
+  batch_size: 1
+  learning_rate: 0.0001
+  max_epochs: 30
+  num_workers: 8
+  seed: 42
+  deterministic: false
+  output_dir: ./outputs/runs
+  limit_train_batches: 150
+  limit_val_batches: 20
+  log_interval: 20
+  vis_interval: 10
+  max_vis_cases: 3
+  debug_shapes: true
 
-## Testing Guidelines
-- No automated test suite is present.
-- If adding tests, document the framework and add a clear command in this file and `README.md`.
+inference:
+  roi_size: [96, 96, 96]
+  overlap: 0.5
+  sw_batch_size: 2
 
-## Commit & Pull Request Guidelines
-- Git history does not show a strict convention; use concise, descriptive commit messages (e.g., “add bias correction CLI flags”).
-- PRs should include: a summary, linked issue (if any), and example commands or screenshots for user-facing changes (e.g., API responses).
+--- brain-tumor-run/events.out.tfevents.1768103610.gn-0018.1738568.0 ---
+(binary file, contents omitted)
 
-## Configuration & Runtime Notes
-- All runtime parameters live in `configs/config.yaml`; prefer config changes over hard-coded values.
-- Model outputs and logs default to `./outputs/` (see `training` config). Keep large artifacts out of git.
+--- brain-tumor-run/gpu.log ---
+(file too large, contents omitted)
 
---- Dockerfile ---
-# Lightweight production image for FastAPI inference
-FROM python:3.9-slim
+--- brain-tumor-run/metrics.csv ---
+epoch,train_loss,val_mean_dice
+1,1.178670,0.497255
+2,0.966799,0.512311
+3,0.841352,0.498570
+4,0.778068,0.496173
+5,0.723302,0.505816
+6,0.735004,0.489569
+7,0.714155,0.496486
+8,0.701073,0.589019
+9,0.684198,0.486185
+10,0.678491,0.486257
+11,0.688577,0.520493
+12,0.703880,0.489607
+13,0.692931,0.483310
+14,0.695144,0.506299
+15,0.658085,0.506511
+16,0.683575,0.494196
+17,0.701025,0.497495
+18,0.671189,0.489324
+19,0.679959,0.541143
+20,0.671052,0.494458
+21,0.652322,0.487713
+22,0.685016,0.501709
+23,0.660768,0.521961
+24,0.678429,0.493501
+25,0.646240,0.539836
+26,0.660751,0.491876
+27,0.678332,0.486891
+28,0.619336,0.489789
+29,0.635796,0.492554
+30,0.663820,0.497571
 
-# Prevent Python from buffering stdout/stderr and writing .pyc files
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+--- brain-tumor-run/metrics_3d.json ---
+{
+  "dataset_format": "msd_task01",
+  "label_mode": "binary",
+  "val": {
+    "dice_per_class": {
+      "background": 0.9940678477287292,
+      "tumor": 0.0030312025919556618
+    },
+    "mean_dice": 0.49854952516034245,
+    "number_of_volumes": 97
+  },
+  "test": {
+    "dice_per_class": {
+      "background": 0.9943698048591614,
+      "tumor": 0.001986186718568206
+    },
+    "mean_dice": 0.4981779957888648,
+    "number_of_volumes": 49
+  },
+  "inference": {
+    "roi_size": [
+      96,
+      96,
+      96
+    ],
+    "overlap": 0.5,
+    "sw_batch_size": 2
+  },
+  "git_commit": "b0ac980"
+}
 
-WORKDIR /app
+--- brain-tumor-run/train.log ---
+2026-01-10 22:53:30,257 | INFO | Train batches per epoch: 338 | Val batches: 97
+2026-01-10 22:53:30,257 | INFO | Using device: cuda
+2026-01-10 22:53:30,258 | INFO | ROI size: [96, 96, 96]
+2026-01-10 22:53:30,258 | INFO | num_workers: 8
+2026-01-10 22:53:30,258 | INFO | limit_train_batches: 150 | limit_val_batches: 20
+2026-01-10 22:53:30,258 | INFO | GPU name: Tesla V100-SXM2-16GB
+2026-01-10 22:53:30,258 | INFO | CUDA capability: (7, 0)
+2026-01-10 22:53:30,259 | INFO | AMP enabled: True
+2026-01-10 22:53:30,259 | WARNING | For best throughput set: OMP_NUM_THREADS=1 and MKL_NUM_THREADS=1
+2026-01-10 22:53:30,261 | INFO | Epoch 1/30
+2026-01-10 22:53:32,722 | INFO |   train step 1/338 loss=1.4284 avg_step=0.480s
+2026-01-10 22:53:35,781 | INFO |   train step 21/338 loss=1.2677 avg_step=0.016s
+2026-01-10 22:53:40,911 | INFO |   train step 41/338 loss=1.2469 avg_step=0.016s
+2026-01-10 22:53:44,537 | INFO |   train step 61/338 loss=1.2062 avg_step=0.015s
+2026-01-10 22:53:49,646 | INFO |   train step 81/338 loss=1.1738 avg_step=0.015s
+2026-01-10 22:53:53,264 | INFO |   train step 101/338 loss=1.1428 avg_step=0.015s
+2026-01-10 22:53:58,340 | INFO |   train step 121/338 loss=1.1226 avg_step=0.015s
+2026-01-10 22:54:01,956 | INFO |   train step 141/338 loss=1.0668 avg_step=0.015s
+2026-01-10 22:54:06,115 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
+2026-01-10 22:54:06,161 | INFO |   val step 1/97 mean_dice=0.4854
+2026-01-10 22:54:09,846 | INFO | Epoch 1 summary | train_loss=1.1787 val_loss=1.0676 val_mean_dice=0.4973 lr=0.000100 gpu_mem_max_mb=142.8
+2026-01-10 22:54:09,876 | INFO | Epoch 2/30
+2026-01-10 22:54:12,069 | INFO |   train step 1/338 loss=1.0524 avg_step=0.020s
+2026-01-10 22:54:15,820 | INFO |   train step 21/338 loss=1.0456 avg_step=0.015s
+2026-01-10 22:54:20,953 | INFO |   train step 41/338 loss=0.9758 avg_step=0.015s
+2026-01-10 22:54:24,599 | INFO |   train step 61/338 loss=0.9738 avg_step=0.015s
+2026-01-10 22:54:29,772 | INFO |   train step 81/338 loss=0.9550 avg_step=0.015s
+2026-01-10 22:54:33,272 | INFO |   train step 101/338 loss=0.9894 avg_step=0.015s
+2026-01-10 22:54:38,457 | INFO |   train step 121/338 loss=0.9139 avg_step=0.015s
+2026-01-10 22:54:41,970 | INFO |   train step 141/338 loss=0.9822 avg_step=0.015s
+2026-01-10 22:54:45,930 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
+2026-01-10 22:54:45,930 | INFO |   val step 1/97 mean_dice=0.4844
+2026-01-10 22:54:49,727 | INFO | Epoch 2 summary | train_loss=0.9668 val_loss=0.9236 val_mean_dice=0.5123 lr=0.000100 gpu_mem_max_mb=156.3
+2026-01-10 22:54:49,743 | INFO | Epoch 3/30
+2026-01-10 22:54:51,874 | INFO |   train step 1/338 loss=0.9794 avg_step=0.017s
+2026-01-10 22:54:55,637 | INFO |   train step 21/338 loss=0.8053 avg_step=0.016s
+2026-01-10 22:55:00,694 | INFO |   train step 41/338 loss=0.8508 avg_step=0.015s
+2026-01-10 22:55:04,397 | INFO |   train step 61/338 loss=0.8640 avg_step=0.015s
+2026-01-10 22:55:09,452 | INFO |   train step 81/338 loss=0.7870 avg_step=0.015s
+2026-01-10 22:55:13,158 | INFO |   train step 101/338 loss=0.7840 avg_step=0.015s
+2026-01-10 22:55:18,171 | INFO |   train step 121/338 loss=1.0247 avg_step=0.015s
+2026-01-10 22:55:21,869 | INFO |   train step 141/338 loss=0.8101 avg_step=0.015s
+2026-01-10 22:55:25,659 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
+2026-01-10 22:55:25,659 | INFO |   val step 1/97 mean_dice=0.4919
+2026-01-10 22:55:29,541 | INFO | Epoch 3 summary | train_loss=0.8414 val_loss=0.8117 val_mean_dice=0.4986 lr=0.000100 gpu_mem_max_mb=156.3
+2026-01-10 22:55:29,542 | INFO | Epoch 4/30
+2026-01-10 22:55:31,673 | INFO |   train step 1/338 loss=0.8488 avg_step=0.017s
+2026-01-10 22:55:35,437 | INFO |   train step 21/338 loss=0.7907 avg_step=0.015s
+2026-01-10 22:55:40,673 | INFO |   train step 41/338 loss=0.7340 avg_step=0.015s
+2026-01-10 22:55:44,174 | INFO |   train step 61/338 loss=0.7473 avg_step=0.015s
+2026-01-10 22:55:49,386 | INFO |   train step 81/338 loss=0.7252 avg_step=0.015s
+2026-01-10 22:55:52,913 | INFO |   train step 101/338 loss=0.7556 avg_step=0.015s
+2026-01-10 22:55:58,065 | INFO |   train step 121/338 loss=0.8162 avg_step=0.015s
+2026-01-10 22:56:01,664 | INFO |   train step 141/338 loss=0.6875 avg_step=0.015s
+2026-01-10 22:56:05,542 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
+2026-01-10 22:56:05,543 | INFO |   val step 1/97 mean_dice=0.4729
+2026-01-10 22:56:09,416 | INFO | Epoch 4 summary | train_loss=0.7781 val_loss=0.7836 val_mean_dice=0.4962 lr=0.000100 gpu_mem_max_mb=156.3
+2026-01-10 22:56:09,416 | INFO | Epoch 5/30
+2026-01-10 22:56:11,685 | INFO |   train step 1/338 loss=0.7423 avg_step=0.024s
+2026-01-10 22:56:15,420 | INFO |   train step 21/338 loss=0.7479 avg_step=0.015s
+2026-01-10 22:56:20,636 | INFO |   train step 41/338 loss=0.6809 avg_step=0.015s
+2026-01-10 22:56:24,119 | INFO |   train step 61/338 loss=0.7571 avg_step=0.015s
+2026-01-10 22:56:29,407 | INFO |   train step 81/338 loss=0.7645 avg_step=0.015s
+2026-01-10 22:56:33,006 | INFO |   train step 101/338 loss=0.6771 avg_step=0.015s
+2026-01-10 22:56:38,229 | INFO |   train step 121/338 loss=0.7274 avg_step=0.015s
+2026-01-10 22:56:41,804 | INFO |   train step 141/338 loss=0.8181 avg_step=0.015s
+2026-01-10 22:56:45,654 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
+2026-01-10 22:56:45,655 | INFO |   val step 1/97 mean_dice=0.4915
+2026-01-10 22:56:49,507 | INFO | Epoch 5 summary | train_loss=0.7233 val_loss=0.7021 val_mean_dice=0.5058 lr=0.000100 gpu_mem_max_mb=156.3
+2026-01-10 22:56:49,508 | INFO | Epoch 6/30
+2026-01-10 22:56:51,600 | INFO |   train step 1/338 loss=0.6536 avg_step=0.022s
+2026-01-10 22:56:55,379 | INFO |   train step 21/338 loss=0.6352 avg_step=0.015s
+2026-01-10 22:57:00,496 | INFO |   train step 41/338 loss=0.7267 avg_step=0.015s
+2026-01-10 22:57:04,077 | INFO |   train step 61/338 loss=0.8102 avg_step=0.015s
+2026-01-10 22:57:09,244 | INFO |   train step 81/338 loss=1.0035 avg_step=0.015s
+2026-01-10 22:57:12,908 | INFO |   train step 101/338 loss=0.6991 avg_step=0.015s
+2026-01-10 22:57:18,053 | INFO |   train step 121/338 loss=0.7718 avg_step=0.015s
+2026-01-10 22:57:21,701 | INFO |   train step 141/338 loss=0.6368 avg_step=0.015s
+2026-01-10 22:57:25,510 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
+2026-01-10 22:57:25,511 | INFO |   val step 1/97 mean_dice=0.4694
+2026-01-10 22:57:29,297 | INFO | Epoch 6 summary | train_loss=0.7350 val_loss=0.8068 val_mean_dice=0.4896 lr=0.000100 gpu_mem_max_mb=156.3
+2026-01-10 22:57:29,297 | INFO | Epoch 7/30
+2026-01-10 22:57:31,492 | INFO |   train step 1/338 loss=0.7802 avg_step=0.015s
+2026-01-10 22:57:35,146 | INFO |   train step 21/338 loss=0.6856 avg_step=0.015s
+2026-01-10 22:57:40,200 | INFO |   train step 41/338 loss=0.6292 avg_step=0.015s
+2026-01-10 22:57:43,828 | INFO |   train step 61/338 loss=0.6883 avg_step=0.015s
+2026-01-10 22:57:48,902 | INFO |   train step 81/338 loss=0.7842 avg_step=0.015s
+2026-01-10 22:57:52,615 | INFO |   train step 101/338 loss=0.8374 avg_step=0.015s
+2026-01-10 22:57:57,576 | INFO |   train step 121/338 loss=0.6510 avg_step=0.015s
+2026-01-10 22:58:01,311 | INFO |   train step 141/338 loss=0.7387 avg_step=0.015s
+2026-01-10 22:58:05,144 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
+2026-01-10 22:58:05,145 | INFO |   val step 1/97 mean_dice=0.4849
+2026-01-10 22:58:08,888 | INFO | Epoch 7 summary | train_loss=0.7142 val_loss=0.7637 val_mean_dice=0.4965 lr=0.000100 gpu_mem_max_mb=156.3
+2026-01-10 22:58:08,888 | INFO | Epoch 8/30
+2026-01-10 22:58:11,023 | INFO |   train step 1/338 loss=0.8736 avg_step=0.017s
+2026-01-10 22:58:14,743 | INFO |   train step 21/338 loss=0.6940 avg_step=0.015s
+2026-01-10 22:58:19,861 | INFO |   train step 41/338 loss=0.5820 avg_step=0.015s
+2026-01-10 22:58:23,475 | INFO |   train step 61/338 loss=0.6417 avg_step=0.015s
+2026-01-10 22:58:28,573 | INFO |   train step 81/338 loss=0.7095 avg_step=0.015s
+2026-01-10 22:58:32,176 | INFO |   train step 101/338 loss=0.7019 avg_step=0.015s
+2026-01-10 22:58:37,167 | INFO |   train step 121/338 loss=0.7610 avg_step=0.015s
+2026-01-10 22:58:40,904 | INFO |   train step 141/338 loss=0.9278 avg_step=0.015s
+2026-01-10 22:58:44,671 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
+2026-01-10 22:58:44,671 | INFO |   val step 1/97 mean_dice=0.5000
+2026-01-10 22:58:48,468 | INFO | Epoch 8 summary | train_loss=0.7011 val_loss=0.6962 val_mean_dice=0.5890 lr=0.000100 gpu_mem_max_mb=156.3
+2026-01-10 22:58:48,485 | INFO | Epoch 9/30
+2026-01-10 22:58:50,666 | INFO |   train step 1/338 loss=0.8055 avg_step=0.016s
+2026-01-10 22:58:54,429 | INFO |   train step 21/338 loss=0.6128 avg_step=0.015s
+2026-01-10 22:58:59,567 | INFO |   train step 41/338 loss=0.5675 avg_step=0.015s
+2026-01-10 22:59:03,206 | INFO |   train step 61/338 loss=0.4827 avg_step=0.015s
+2026-01-10 22:59:08,410 | INFO |   train step 81/338 loss=0.6939 avg_step=0.015s
+2026-01-10 22:59:12,033 | INFO |   train step 101/338 loss=0.5411 avg_step=0.015s
+2026-01-10 22:59:17,240 | INFO |   train step 121/338 loss=0.8473 avg_step=0.015s
+2026-01-10 22:59:20,877 | INFO |   train step 141/338 loss=0.6066 avg_step=0.015s
+2026-01-10 22:59:24,784 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
+2026-01-10 22:59:24,785 | INFO |   val step 1/97 mean_dice=0.4969
+2026-01-10 22:59:28,679 | INFO | Epoch 9 summary | train_loss=0.6842 val_loss=0.7718 val_mean_dice=0.4862 lr=0.000100 gpu_mem_max_mb=156.3
+2026-01-10 22:59:28,679 | INFO | Epoch 10/30
+2026-01-10 22:59:30,825 | INFO |   train step 1/338 loss=0.6629 avg_step=0.017s
+2026-01-10 22:59:34,584 | INFO |   train step 21/338 loss=0.6349 avg_step=0.015s
+2026-01-10 22:59:39,742 | INFO |   train step 41/338 loss=0.5825 avg_step=0.015s
+2026-01-10 22:59:43,351 | INFO |   train step 61/338 loss=0.6644 avg_step=0.015s
+2026-01-10 22:59:48,532 | INFO |   train step 81/338 loss=0.6603 avg_step=0.015s
+2026-01-10 22:59:52,078 | INFO |   train step 101/338 loss=0.6855 avg_step=0.015s
+2026-01-10 22:59:57,377 | INFO |   train step 121/338 loss=0.5275 avg_step=0.015s
+2026-01-10 23:00:01,005 | INFO |   train step 141/338 loss=0.7198 avg_step=0.015s
+2026-01-10 23:00:04,777 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
+2026-01-10 23:00:04,778 | INFO |   val step 1/97 mean_dice=0.4882
+2026-01-10 23:00:08,605 | INFO | Epoch 10 summary | train_loss=0.6785 val_loss=0.7491 val_mean_dice=0.4863 lr=0.000100 gpu_mem_max_mb=156.3
+2026-01-10 23:00:13,904 | INFO | Epoch 11/30
+2026-01-10 23:00:16,025 | INFO |   train step 1/338 loss=0.9882 avg_step=0.017s
+2026-01-10 23:00:19,661 | INFO |   train step 21/338 loss=0.6370 avg_step=0.015s
+2026-01-10 23:00:24,713 | INFO |   train step 41/338 loss=0.7576 avg_step=0.015s
+2026-01-10 23:00:28,452 | INFO |   train step 61/338 loss=0.7211 avg_step=0.015s
+2026-01-10 23:00:33,377 | INFO |   train step 81/338 loss=0.8523 avg_step=0.015s
+2026-01-10 23:00:37,272 | INFO |   train step 101/338 loss=0.5172 avg_step=0.015s
+2026-01-10 23:00:42,231 | INFO |   train step 121/338 loss=0.5950 avg_step=0.015s
+2026-01-10 23:00:46,004 | INFO |   train step 141/338 loss=0.6677 avg_step=0.015s
+2026-01-10 23:00:49,863 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
+2026-01-10 23:00:49,864 | INFO |   val step 1/97 mean_dice=0.4877
+2026-01-10 23:00:53,642 | INFO | Epoch 11 summary | train_loss=0.6886 val_loss=0.6772 val_mean_dice=0.5205 lr=0.000100 gpu_mem_max_mb=156.3
+2026-01-10 23:00:53,643 | INFO | Epoch 12/30
+2026-01-10 23:00:55,755 | INFO |   train step 1/338 loss=0.9300 avg_step=0.017s
+2026-01-10 23:00:59,580 | INFO |   train step 21/338 loss=0.6302 avg_step=0.015s
+2026-01-10 23:01:04,736 | INFO |   train step 41/338 loss=0.5985 avg_step=0.015s
+2026-01-10 23:01:08,252 | INFO |   train step 61/338 loss=0.6297 avg_step=0.015s
+2026-01-10 23:01:13,372 | INFO |   train step 81/338 loss=0.6024 avg_step=0.015s
+2026-01-10 23:01:16,877 | INFO |   train step 101/338 loss=0.6807 avg_step=0.015s
+2026-01-10 23:01:22,057 | INFO |   train step 121/338 loss=0.9419 avg_step=0.015s
+2026-01-10 23:01:25,631 | INFO |   train step 141/338 loss=0.6395 avg_step=0.015s
+2026-01-10 23:01:29,596 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
+2026-01-10 23:01:29,597 | INFO |   val step 1/97 mean_dice=0.4793
+2026-01-10 23:01:33,481 | INFO | Epoch 12 summary | train_loss=0.7039 val_loss=0.6981 val_mean_dice=0.4896 lr=0.000100 gpu_mem_max_mb=156.3
+2026-01-10 23:01:33,481 | INFO | Epoch 13/30
+2026-01-10 23:01:35,750 | INFO |   train step 1/338 loss=0.6565 avg_step=0.018s
+2026-01-10 23:01:40,155 | INFO |   train step 21/338 loss=0.7959 avg_step=0.017s
+2026-01-10 23:01:45,654 | INFO |   train step 41/338 loss=0.7369 avg_step=0.015s
+2026-01-10 23:01:49,205 | INFO |   train step 61/338 loss=0.8676 avg_step=0.015s
+2026-01-10 23:01:54,365 | INFO |   train step 81/338 loss=0.5125 avg_step=0.015s
+2026-01-10 23:01:58,002 | INFO |   train step 101/338 loss=0.8069 avg_step=0.015s
+2026-01-10 23:02:03,070 | INFO |   train step 121/338 loss=0.5489 avg_step=0.016s
+2026-01-10 23:02:06,750 | INFO |   train step 141/338 loss=0.6015 avg_step=0.016s
+2026-01-10 23:02:10,499 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
+2026-01-10 23:02:10,499 | INFO |   val step 1/97 mean_dice=0.4920
+2026-01-10 23:02:14,370 | INFO | Epoch 13 summary | train_loss=0.6929 val_loss=0.6933 val_mean_dice=0.4833 lr=0.000100 gpu_mem_max_mb=156.3
+2026-01-10 23:02:14,370 | INFO | Epoch 14/30
+2026-01-10 23:02:16,442 | INFO |   train step 1/338 loss=0.6296 avg_step=0.017s
+2026-01-10 23:02:20,238 | INFO |   train step 21/338 loss=0.4484 avg_step=0.016s
+2026-01-10 23:02:25,378 | INFO |   train step 41/338 loss=0.8567 avg_step=0.015s
+2026-01-10 23:02:29,071 | INFO |   train step 61/338 loss=0.6414 avg_step=0.015s
+2026-01-10 23:02:34,316 | INFO |   train step 81/338 loss=0.6081 avg_step=0.015s
+2026-01-10 23:02:37,821 | INFO |   train step 101/338 loss=0.5874 avg_step=0.015s
+2026-01-10 23:02:42,922 | INFO |   train step 121/338 loss=0.6918 avg_step=0.015s
+2026-01-10 23:02:46,416 | INFO |   train step 141/338 loss=0.5972 avg_step=0.015s
+2026-01-10 23:02:50,308 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
+2026-01-10 23:02:50,309 | INFO |   val step 1/97 mean_dice=0.5829
+2026-01-10 23:02:54,105 | INFO | Epoch 14 summary | train_loss=0.6951 val_loss=0.6639 val_mean_dice=0.5063 lr=0.000100 gpu_mem_max_mb=156.3
+2026-01-10 23:02:54,106 | INFO | Epoch 15/30
+2026-01-10 23:02:56,264 | INFO |   train step 1/338 loss=0.5103 avg_step=0.016s
+2026-01-10 23:03:00,015 | INFO |   train step 21/338 loss=0.4698 avg_step=0.016s
+2026-01-10 23:03:05,168 | INFO |   train step 41/338 loss=0.6362 avg_step=0.015s
+2026-01-10 23:03:08,777 | INFO |   train step 61/338 loss=0.8572 avg_step=0.015s
+2026-01-10 23:03:13,946 | INFO |   train step 81/338 loss=0.7099 avg_step=0.015s
+2026-01-10 23:03:17,501 | INFO |   train step 101/338 loss=0.6013 avg_step=0.015s
+2026-01-10 23:03:22,747 | INFO |   train step 121/338 loss=0.5152 avg_step=0.015s
+2026-01-10 23:03:26,246 | INFO |   train step 141/338 loss=0.6007 avg_step=0.015s
+2026-01-10 23:03:30,078 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
+2026-01-10 23:03:30,078 | INFO |   val step 1/97 mean_dice=0.4926
+2026-01-10 23:03:33,891 | INFO | Epoch 15 summary | train_loss=0.6581 val_loss=0.7105 val_mean_dice=0.5065 lr=0.000100 gpu_mem_max_mb=156.3
+2026-01-10 23:03:33,891 | INFO | Epoch 16/30
+2026-01-10 23:03:35,969 | INFO |   train step 1/338 loss=0.5352 avg_step=0.031s
+2026-01-10 23:03:39,720 | INFO |   train step 21/338 loss=0.6484 avg_step=0.016s
+2026-01-10 23:03:44,810 | INFO |   train step 41/338 loss=0.7556 avg_step=0.015s
+2026-01-10 23:03:48,467 | INFO |   train step 61/338 loss=0.8723 avg_step=0.015s
+2026-01-10 23:03:53,610 | INFO |   train step 81/338 loss=0.5621 avg_step=0.015s
+2026-01-10 23:03:57,261 | INFO |   train step 101/338 loss=0.6338 avg_step=0.015s
+2026-01-10 23:04:02,404 | INFO |   train step 121/338 loss=0.5374 avg_step=0.015s
+2026-01-10 23:04:06,858 | INFO |   train step 141/338 loss=0.6818 avg_step=0.017s
+2026-01-10 23:04:10,672 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
+2026-01-10 23:04:10,673 | INFO |   val step 1/97 mean_dice=0.4869
+2026-01-10 23:04:14,567 | INFO | Epoch 16 summary | train_loss=0.6836 val_loss=0.6613 val_mean_dice=0.4942 lr=0.000100 gpu_mem_max_mb=156.3
+2026-01-10 23:04:14,567 | INFO | Epoch 17/30
+2026-01-10 23:04:16,725 | INFO |   train step 1/338 loss=0.6417 avg_step=0.016s
+2026-01-10 23:04:20,411 | INFO |   train step 21/338 loss=0.5931 avg_step=0.015s
+2026-01-10 23:04:25,618 | INFO |   train step 41/338 loss=0.8413 avg_step=0.015s
+2026-01-10 23:04:29,213 | INFO |   train step 61/338 loss=0.8916 avg_step=0.015s
+2026-01-10 23:04:34,323 | INFO |   train step 81/338 loss=0.7738 avg_step=0.015s
+2026-01-10 23:04:37,934 | INFO |   train step 101/338 loss=0.5333 avg_step=0.015s
+2026-01-10 23:04:43,064 | INFO |   train step 121/338 loss=0.6351 avg_step=0.015s
+2026-01-10 23:04:46,570 | INFO |   train step 141/338 loss=0.5696 avg_step=0.015s
+2026-01-10 23:04:50,359 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
+2026-01-10 23:04:50,360 | INFO |   val step 1/97 mean_dice=0.5108
+2026-01-10 23:04:54,196 | INFO | Epoch 17 summary | train_loss=0.7010 val_loss=0.6394 val_mean_dice=0.4975 lr=0.000100 gpu_mem_max_mb=156.3
+2026-01-10 23:04:54,196 | INFO | Epoch 18/30
+2026-01-10 23:04:56,324 | INFO |   train step 1/338 loss=0.5987 avg_step=0.016s
+2026-01-10 23:05:00,084 | INFO |   train step 21/338 loss=0.5091 avg_step=0.015s
+2026-01-10 23:05:05,294 | INFO |   train step 41/338 loss=0.7540 avg_step=0.015s
+2026-01-10 23:05:08,802 | INFO |   train step 61/338 loss=0.4924 avg_step=0.015s
+2026-01-10 23:05:13,862 | INFO |   train step 81/338 loss=0.7372 avg_step=0.015s
+2026-01-10 23:05:17,353 | INFO |   train step 101/338 loss=0.5428 avg_step=0.015s
+2026-01-10 23:05:22,337 | INFO |   train step 121/338 loss=0.6016 avg_step=0.015s
+2026-01-10 23:05:26,133 | INFO |   train step 141/338 loss=0.7173 avg_step=0.016s
+2026-01-10 23:05:29,964 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
+2026-01-10 23:05:29,965 | INFO |   val step 1/97 mean_dice=0.4850
+2026-01-10 23:05:33,836 | INFO | Epoch 18 summary | train_loss=0.6712 val_loss=0.7084 val_mean_dice=0.4893 lr=0.000100 gpu_mem_max_mb=156.3
+2026-01-10 23:05:33,837 | INFO | Epoch 19/30
+2026-01-10 23:05:36,001 | INFO |   train step 1/338 loss=0.5257 avg_step=0.017s
+2026-01-10 23:05:39,687 | INFO |   train step 21/338 loss=0.5881 avg_step=0.015s
+2026-01-10 23:05:44,890 | INFO |   train step 41/338 loss=0.7110 avg_step=0.015s
+2026-01-10 23:05:48,368 | INFO |   train step 61/338 loss=0.4761 avg_step=0.015s
+2026-01-10 23:05:53,506 | INFO |   train step 81/338 loss=0.6981 avg_step=0.015s
+2026-01-10 23:05:57,065 | INFO |   train step 101/338 loss=0.8854 avg_step=0.015s
+2026-01-10 23:06:02,217 | INFO |   train step 121/338 loss=0.5597 avg_step=0.015s
+2026-01-10 23:06:05,824 | INFO |   train step 141/338 loss=0.5874 avg_step=0.015s
+2026-01-10 23:06:09,696 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
+2026-01-10 23:06:09,697 | INFO |   val step 1/97 mean_dice=0.4862
+2026-01-10 23:06:13,520 | INFO | Epoch 19 summary | train_loss=0.6800 val_loss=0.6593 val_mean_dice=0.5411 lr=0.000100 gpu_mem_max_mb=156.3
+2026-01-10 23:06:13,521 | INFO | Epoch 20/30
+2026-01-10 23:06:15,609 | INFO |   train step 1/338 loss=0.6429 avg_step=0.017s
+2026-01-10 23:06:19,406 | INFO |   train step 21/338 loss=0.5318 avg_step=0.015s
+2026-01-10 23:06:24,558 | INFO |   train step 41/338 loss=0.8738 avg_step=0.015s
+2026-01-10 23:06:27,994 | INFO |   train step 61/338 loss=0.8892 avg_step=0.015s
+2026-01-10 23:06:33,104 | INFO |   train step 81/338 loss=0.5361 avg_step=0.015s
+2026-01-10 23:06:36,677 | INFO |   train step 101/338 loss=0.6240 avg_step=0.015s
+2026-01-10 23:06:41,881 | INFO |   train step 121/338 loss=0.4986 avg_step=0.015s
+2026-01-10 23:06:45,396 | INFO |   train step 141/338 loss=0.6313 avg_step=0.015s
+2026-01-10 23:06:49,202 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
+2026-01-10 23:06:49,203 | INFO |   val step 1/97 mean_dice=0.4905
+2026-01-10 23:06:53,047 | INFO | Epoch 20 summary | train_loss=0.6711 val_loss=0.7224 val_mean_dice=0.4945 lr=0.000100 gpu_mem_max_mb=156.3
+2026-01-10 23:06:58,333 | INFO | Epoch 21/30
+2026-01-10 23:07:00,505 | INFO |   train step 1/338 loss=0.6524 avg_step=0.017s
+2026-01-10 23:07:04,082 | INFO |   train step 21/338 loss=0.5709 avg_step=0.015s
+2026-01-10 23:07:09,145 | INFO |   train step 41/338 loss=0.7422 avg_step=0.015s
+2026-01-10 23:07:12,782 | INFO |   train step 61/338 loss=0.4376 avg_step=0.015s
+2026-01-10 23:07:17,838 | INFO |   train step 81/338 loss=0.6541 avg_step=0.015s
+2026-01-10 23:07:21,583 | INFO |   train step 101/338 loss=0.6410 avg_step=0.015s
+2026-01-10 23:07:26,610 | INFO |   train step 121/338 loss=0.5436 avg_step=0.015s
+2026-01-10 23:07:30,348 | INFO |   train step 141/338 loss=0.5031 avg_step=0.015s
+2026-01-10 23:07:34,126 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
+2026-01-10 23:07:34,127 | INFO |   val step 1/97 mean_dice=0.4907
+2026-01-10 23:07:37,954 | INFO | Epoch 21 summary | train_loss=0.6523 val_loss=0.6773 val_mean_dice=0.4877 lr=0.000100 gpu_mem_max_mb=156.3
+2026-01-10 23:07:37,954 | INFO | Epoch 22/30
+2026-01-10 23:07:40,005 | INFO |   train step 1/338 loss=0.8830 avg_step=0.016s
+2026-01-10 23:07:43,837 | INFO |   train step 21/338 loss=0.6529 avg_step=0.015s
+2026-01-10 23:07:48,910 | INFO |   train step 41/338 loss=0.5881 avg_step=0.015s
+2026-01-10 23:07:52,469 | INFO |   train step 61/338 loss=0.6552 avg_step=0.015s
+2026-01-10 23:07:57,571 | INFO |   train step 81/338 loss=0.5435 avg_step=0.015s
+2026-01-10 23:08:01,221 | INFO |   train step 101/338 loss=0.7491 avg_step=0.015s
+2026-01-10 23:08:06,130 | INFO |   train step 121/338 loss=0.6806 avg_step=0.015s
+2026-01-10 23:08:09,937 | INFO |   train step 141/338 loss=0.6150 avg_step=0.015s
+2026-01-10 23:08:13,748 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
+2026-01-10 23:08:13,749 | INFO |   val step 1/97 mean_dice=0.4985
+2026-01-10 23:08:17,588 | INFO | Epoch 22 summary | train_loss=0.6850 val_loss=0.6976 val_mean_dice=0.5017 lr=0.000100 gpu_mem_max_mb=156.3
+2026-01-10 23:08:17,588 | INFO | Epoch 23/30
+2026-01-10 23:08:19,729 | INFO |   train step 1/338 loss=0.6178 avg_step=0.016s
+2026-01-10 23:08:23,498 | INFO |   train step 21/338 loss=0.5869 avg_step=0.015s
+2026-01-10 23:08:28,572 | INFO |   train step 41/338 loss=0.4363 avg_step=0.015s
+2026-01-10 23:08:32,183 | INFO |   train step 61/338 loss=0.7482 avg_step=0.015s
+2026-01-10 23:08:37,286 | INFO |   train step 81/338 loss=1.0215 avg_step=0.015s
+2026-01-10 23:08:40,947 | INFO |   train step 101/338 loss=0.7670 avg_step=0.015s
+2026-01-10 23:08:45,895 | INFO |   train step 121/338 loss=0.7085 avg_step=0.015s
+2026-01-10 23:08:49,681 | INFO |   train step 141/338 loss=0.5884 avg_step=0.015s
+2026-01-10 23:08:53,447 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
+2026-01-10 23:08:53,448 | INFO |   val step 1/97 mean_dice=1.0000
+2026-01-10 23:08:57,299 | INFO | Epoch 23 summary | train_loss=0.6608 val_loss=0.6089 val_mean_dice=0.5220 lr=0.000100 gpu_mem_max_mb=156.3
+2026-01-10 23:08:57,300 | INFO | Epoch 24/30
+2026-01-10 23:08:59,440 | INFO |   train step 1/338 loss=0.7663 avg_step=0.016s
+2026-01-10 23:09:03,123 | INFO |   train step 21/338 loss=0.5226 avg_step=0.015s
+2026-01-10 23:09:07,984 | INFO |   train step 41/338 loss=0.5316 avg_step=0.015s
+2026-01-10 23:09:11,941 | INFO |   train step 61/338 loss=0.5141 avg_step=0.015s
+2026-01-10 23:09:16,675 | INFO |   train step 81/338 loss=1.0160 avg_step=0.015s
+2026-01-10 23:09:20,783 | INFO |   train step 101/338 loss=0.9356 avg_step=0.015s
+2026-01-10 23:09:25,174 | INFO |   train step 121/338 loss=0.8607 avg_step=0.015s
+2026-01-10 23:09:29,449 | INFO |   train step 141/338 loss=0.6377 avg_step=0.016s
+2026-01-10 23:09:33,195 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
+2026-01-10 23:09:33,196 | INFO |   val step 1/97 mean_dice=0.4970
+2026-01-10 23:09:36,999 | INFO | Epoch 24 summary | train_loss=0.6784 val_loss=0.6490 val_mean_dice=0.4935 lr=0.000100 gpu_mem_max_mb=156.3
+2026-01-10 23:09:36,999 | INFO | Epoch 25/30
+2026-01-10 23:09:39,164 | INFO |   train step 1/338 loss=0.5217 avg_step=0.016s
+2026-01-10 23:09:42,899 | INFO |   train step 21/338 loss=0.5834 avg_step=0.015s
+2026-01-10 23:09:48,061 | INFO |   train step 41/338 loss=0.6487 avg_step=0.015s
+2026-01-10 23:09:51,657 | INFO |   train step 61/338 loss=0.8514 avg_step=0.015s
+2026-01-10 23:09:56,820 | INFO |   train step 81/338 loss=0.4779 avg_step=0.015s
+2026-01-10 23:10:00,349 | INFO |   train step 101/338 loss=0.6516 avg_step=0.015s
+2026-01-10 23:10:05,432 | INFO |   train step 121/338 loss=0.7879 avg_step=0.015s
+2026-01-10 23:10:09,034 | INFO |   train step 141/338 loss=0.5726 avg_step=0.015s
+2026-01-10 23:10:12,948 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
+2026-01-10 23:10:12,949 | INFO |   val step 1/97 mean_dice=0.4981
+2026-01-10 23:10:16,679 | INFO | Epoch 25 summary | train_loss=0.6462 val_loss=0.6710 val_mean_dice=0.5398 lr=0.000100 gpu_mem_max_mb=156.3
+2026-01-10 23:10:16,679 | INFO | Epoch 26/30
+2026-01-10 23:10:18,818 | INFO |   train step 1/338 loss=0.5233 avg_step=0.016s
+2026-01-10 23:10:22,546 | INFO |   train step 21/338 loss=0.7342 avg_step=0.015s
+2026-01-10 23:10:27,673 | INFO |   train step 41/338 loss=0.6740 avg_step=0.015s
+2026-01-10 23:10:31,313 | INFO |   train step 61/338 loss=0.6983 avg_step=0.015s
+2026-01-10 23:10:36,407 | INFO |   train step 81/338 loss=0.5263 avg_step=0.015s
+2026-01-10 23:10:39,952 | INFO |   train step 101/338 loss=0.8519 avg_step=0.015s
+2026-01-10 23:10:45,140 | INFO |   train step 121/338 loss=0.6544 avg_step=0.015s
+2026-01-10 23:10:48,658 | INFO |   train step 141/338 loss=0.5106 avg_step=0.015s
+2026-01-10 23:10:52,503 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
+2026-01-10 23:10:52,504 | INFO |   val step 1/97 mean_dice=0.4972
+2026-01-10 23:10:56,316 | INFO | Epoch 26 summary | train_loss=0.6608 val_loss=0.6291 val_mean_dice=0.4919 lr=0.000100 gpu_mem_max_mb=156.3
+2026-01-10 23:10:56,316 | INFO | Epoch 27/30
+2026-01-10 23:10:58,365 | INFO |   train step 1/338 loss=0.6258 avg_step=0.016s
+2026-01-10 23:11:02,105 | INFO |   train step 21/338 loss=0.4997 avg_step=0.016s
+2026-01-10 23:11:07,072 | INFO |   train step 41/338 loss=0.6342 avg_step=0.015s
+2026-01-10 23:11:10,785 | INFO |   train step 61/338 loss=0.5833 avg_step=0.015s
+2026-01-10 23:11:15,756 | INFO |   train step 81/338 loss=0.6075 avg_step=0.015s
+2026-01-10 23:11:19,591 | INFO |   train step 101/338 loss=0.6599 avg_step=0.015s
+2026-01-10 23:11:24,381 | INFO |   train step 121/338 loss=0.5743 avg_step=0.015s
+2026-01-10 23:11:28,252 | INFO |   train step 141/338 loss=0.5821 avg_step=0.015s
+2026-01-10 23:11:32,106 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
+2026-01-10 23:11:32,107 | INFO |   val step 1/97 mean_dice=0.4975
+2026-01-10 23:11:35,920 | INFO | Epoch 27 summary | train_loss=0.6783 val_loss=0.6508 val_mean_dice=0.4869 lr=0.000100 gpu_mem_max_mb=156.3
+2026-01-10 23:11:35,920 | INFO | Epoch 28/30
+2026-01-10 23:11:38,028 | INFO |   train step 1/338 loss=0.6111 avg_step=0.017s
+2026-01-10 23:11:41,714 | INFO |   train step 21/338 loss=0.6427 avg_step=0.015s
+2026-01-10 23:11:46,821 | INFO |   train step 41/338 loss=0.5375 avg_step=0.015s
+2026-01-10 23:11:50,473 | INFO |   train step 61/338 loss=0.5691 avg_step=0.015s
+2026-01-10 23:11:55,577 | INFO |   train step 81/338 loss=0.6913 avg_step=0.015s
+2026-01-10 23:11:59,250 | INFO |   train step 101/338 loss=0.6661 avg_step=0.015s
+2026-01-10 23:12:04,213 | INFO |   train step 121/338 loss=0.7075 avg_step=0.015s
+2026-01-10 23:12:07,995 | INFO |   train step 141/338 loss=0.5925 avg_step=0.015s
+2026-01-10 23:12:11,824 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
+2026-01-10 23:12:11,825 | INFO |   val step 1/97 mean_dice=0.4888
+2026-01-10 23:12:15,605 | INFO | Epoch 28 summary | train_loss=0.6193 val_loss=0.7187 val_mean_dice=0.4898 lr=0.000100 gpu_mem_max_mb=156.3
+2026-01-10 23:12:15,606 | INFO | Epoch 29/30
+2026-01-10 23:12:17,700 | INFO |   train step 1/338 loss=0.6759 avg_step=0.016s
+2026-01-10 23:12:21,482 | INFO |   train step 21/338 loss=0.5180 avg_step=0.015s
+2026-01-10 23:12:26,503 | INFO |   train step 41/338 loss=0.8768 avg_step=0.015s
+2026-01-10 23:12:30,136 | INFO |   train step 61/338 loss=0.6053 avg_step=0.015s
+2026-01-10 23:12:35,274 | INFO |   train step 81/338 loss=0.6128 avg_step=0.015s
+2026-01-10 23:12:38,902 | INFO |   train step 101/338 loss=0.6097 avg_step=0.015s
+2026-01-10 23:12:44,012 | INFO |   train step 121/338 loss=0.6664 avg_step=0.015s
+2026-01-10 23:12:47,599 | INFO |   train step 141/338 loss=0.5143 avg_step=0.015s
+2026-01-10 23:12:51,372 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
+2026-01-10 23:12:51,373 | INFO |   val step 1/97 mean_dice=0.4975
+2026-01-10 23:12:55,233 | INFO | Epoch 29 summary | train_loss=0.6358 val_loss=0.6412 val_mean_dice=0.4926 lr=0.000100 gpu_mem_max_mb=156.3
+2026-01-10 23:12:55,233 | INFO | Epoch 30/30
+2026-01-10 23:12:57,368 | INFO |   train step 1/338 loss=0.6045 avg_step=0.021s
+2026-01-10 23:13:01,113 | INFO |   train step 21/338 loss=0.6227 avg_step=0.015s
+2026-01-10 23:13:06,228 | INFO |   train step 41/338 loss=0.7045 avg_step=0.015s
+2026-01-10 23:13:09,848 | INFO |   train step 61/338 loss=1.1029 avg_step=0.015s
+2026-01-10 23:13:15,034 | INFO |   train step 81/338 loss=0.8245 avg_step=0.015s
+2026-01-10 23:13:18,598 | INFO |   train step 101/338 loss=0.7138 avg_step=0.015s
+2026-01-10 23:13:23,682 | INFO |   train step 121/338 loss=0.4053 avg_step=0.015s
+2026-01-10 23:13:27,315 | INFO |   train step 141/338 loss=0.3979 avg_step=0.015s
+2026-01-10 23:13:31,089 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
+2026-01-10 23:13:31,090 | INFO |   val step 1/97 mean_dice=0.4938
+2026-01-10 23:13:34,960 | INFO | Epoch 30 summary | train_loss=0.6638 val_loss=0.6166 val_mean_dice=0.4976 lr=0.000100 gpu_mem_max_mb=156.3
+2026-01-10 23:13:40,272 | INFO | Best val mean Dice: 0.5890
+2026-01-10 23:13:40,273 | INFO | Run directory: outputs/runs/20260110_225328
 
-# System dependencies for OpenCV
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libgl1-mesa-glx \
-    libglib2.0-0 \
- && rm -rf /var/lib/apt/lists/*
+--- brain-tumor-run/train_config_resolved.yaml ---
+data:
+  root: ./data/raw/msd_task01/Task01_BrainTumour
+  train_ratio: 0.7
+  val_ratio: 0.2
+  seed: 42
+  list_files:
+    train: null
+    val: null
+    test: null
+  label_mode: binary
+  class_names:
+  - background
+  - tumor
+  roi_size:
+  - 96
+  - 96
+  - 96
+  pos_ratio: 0.7
+  percentiles:
+  - 0.5
+  - 99.5
+model:
+  in_channels: 4
+  channels:
+  - 16
+  - 32
+  - 64
+  - 128
+  - 128
+  strides:
+  - 2
+  - 2
+  - 2
+  - 2
+  num_res_units: 1
+  norm: instance
+training:
+  batch_size: 1
+  learning_rate: 0.0001
+  max_epochs: 30
+  num_workers: 8
+  seed: 42
+  deterministic: false
+  output_dir: ./outputs/runs
+  limit_train_batches: 150
+  limit_val_batches: 20
+  log_interval: 20
+  vis_interval: 10
+  max_vis_cases: 3
+  debug_shapes: true
+inference:
+  roi_size:
+  - 96
+  - 96
+  - 96
+  overlap: 0.5
+  sw_batch_size: 2
 
-# Install Python dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+--- configs/config.yaml ---
+# Default configuration for brain tumor segmentation
 
-# Copy application code
-COPY . .
+data:
+  root: ./Dataset
+  train_images: train_frames/train
+  train_masks: train_masks/train
+  val_images: val_frames/val
+  val_masks: val_masks/val
+  test_images: test_frames/test
+  test_masks: test_masks/test
+  class_names: [background, non-enhancing, edema, enhancing]
+  image_size: 256
 
-# Expose port for Vertex AI
-EXPOSE 8080
+augmentation:
+  enable: true
 
-# Start FastAPI with uvicorn
-CMD ["uvicorn", "src.service.api:app", "--host", "0.0.0.0", "--port", "8080"]
+training:
+  batch_size: 16
+  epochs: 20
+  learning_rate: 0.0001
+  steps_per_epoch: null
+  validation_steps: null
+  early_stopping_patience: 10
+  use_multiprocessing: true
+  workers: 4
+  seed: 42
+  log_dir: ./outputs/logs
+  checkpoint_dir: ./outputs/checkpoints
+  checkpoint_filename: best_model_unet.h5
+
+model:
+  input_channels: 1
+  base_filters: 32
+
+--- configs/config_3d.yaml ---
+# 3D pipeline configuration for MSD Task01_BrainTumour
+
+data:
+  root: ./data/raw/msd_task01/Task01_BrainTumour
+  train_ratio: 0.7
+  val_ratio: 0.2
+  seed: 42
+  list_files:
+    train: null
+    val: null
+    test: null
+  label_mode: binary
+  class_names: [background, tumor]
+  roi_size: [96, 96, 96]
+  pos_ratio: 0.7
+  max_pos_attempts: 10
+  percentiles: [0.5, 99.5]
+
+model:
+  in_channels: 4
+  channels: [16, 32, 64, 128, 128]
+  strides: [2, 2, 2, 2]
+  num_res_units: 1
+  norm: instance
+
+training:
+  batch_size: 1
+  learning_rate: 0.0001
+  max_epochs: 30
+  num_workers: 8
+  seed: 42
+  deterministic: false
+  output_dir: ./outputs/runs
+  limit_train_batches: 150
+  limit_val_batches: 20
+  log_interval: 20
+  vis_interval: 10
+  max_vis_cases: 3
+  debug_shapes: false
+  ignore_empty_foreground: true
+  log_sanity_steps: 50
+
+inference:
+  roi_size: [96, 96, 96]
+  overlap: 0.5
+  sw_batch_size: 2
+  ignore_empty_foreground: true
+
+--- requirements-3d.txt ---
+torch
+monai
+pyyaml
+tensorboard
 
 --- requirements.txt ---
 albumentations
@@ -447,12 +1107,6 @@ fastapi
 uvicorn
 python-multipart
 pytest
-
---- requirements-3d.txt ---
-torch
-monai
-pyyaml
-tensorboard
 
 --- scripts/download_msd_task01.py ---
 import argparse
@@ -526,1148 +1180,14 @@ def main():
 if __name__ == "__main__":
     main()
 
---- configs/config.yaml ---
-# Default configuration for brain tumor segmentation
-
-data:
-  root: ./Dataset
-  train_images: train_frames/train
-  train_masks: train_masks/train
-  val_images: val_frames/val
-  val_masks: val_masks/val
-  test_images: test_frames/test
-  test_masks: test_masks/test
-  class_names: [background, non-enhancing, edema, enhancing]
-  image_size: 256
-
-augmentation:
-  enable: true
-
-training:
-  batch_size: 16
-  epochs: 20
-  learning_rate: 0.0001
-  steps_per_epoch: null
-  validation_steps: null
-  early_stopping_patience: 10
-  use_multiprocessing: true
-  workers: 4
-  seed: 42
-  log_dir: ./outputs/logs
-  checkpoint_dir: ./outputs/checkpoints
-  checkpoint_filename: best_model_unet.h5
-
-model:
-  input_channels: 1
-  base_filters: 32
-
---- configs/config_3d.yaml ---
-# 3D pipeline configuration for MSD Task01_BrainTumour
-
-data:
-  root: ./data/raw/msd_task01/Task01_BrainTumour
-  train_ratio: 0.7
-  val_ratio: 0.2
-  seed: 42
-  list_files:
-    train: null
-    val: null
-    test: null
-  label_mode: binary
-  class_names: [background, tumor]
-  roi_size: [96, 96, 96]
-  pos_ratio: 0.7
-  percentiles: [0.5, 99.5]
-
-model:
-  in_channels: 4
-  channels: [16, 32, 64, 128, 128]
-  strides: [2, 2, 2, 2]
-  num_res_units: 1
-  norm: instance
-
-training:
-  batch_size: 1
-  learning_rate: 0.0001
-  max_epochs: 30
-  num_workers: 8
-  seed: 42
-  deterministic: false
-  output_dir: ./outputs/runs
-  limit_train_batches: 150
-  limit_val_batches: 20
-  log_interval: 20
-  vis_interval: 10
-  max_vis_cases: 3
-  debug_shapes: false
-
-inference:
-  roi_size: [96, 96, 96]
-  overlap: 0.5
-  sw_batch_size: 2
-
-
---- train.py ---
-"""Entry point for training using the modular pipeline."""
-from src.training.train import main
-
-
-if __name__ == "__main__":
-    main()
-
---- src/train_3d.py ---
-import argparse
-import csv
-import json
-import random
-import logging
-import os
-import time
-from datetime import datetime
-from pathlib import Path
-from typing import Dict, List, Tuple
-
-import numpy as np
-import torch
-import yaml
-from monai.losses import DiceCELoss
-from monai.metrics import DiceMetric
-from monai.networks.nets import UNet
-from monai.transforms import AsDiscrete
-from PIL import Image
-from torch.utils.tensorboard import SummaryWriter
-
-from src.data.msd_task01_3d import MSDTask01Dataset3D, build_splits, list_msd_task01_cases
-
-
-def setup_logging(log_path: Path):
-    logger = logging.getLogger("train_3d")
-    logger.setLevel(logging.INFO)
-    formatter = logging.Formatter("%(asctime)s | %(levelname)s | %(message)s")
-    stream_handler = logging.StreamHandler()
-    stream_handler.setFormatter(formatter)
-    file_handler = logging.FileHandler(log_path)
-    file_handler.setFormatter(formatter)
-    if not logger.handlers:
-        logger.addHandler(stream_handler)
-        logger.addHandler(file_handler)
-    return logger
-
-
-def parse_args():
-    parser = argparse.ArgumentParser(description="Train 3D U-Net on MSD Task01")
-    parser.add_argument("--config", default="configs/config_3d.yaml", help="Path to YAML config file")
-    parser.add_argument("--max-epochs", type=int, help="Override max epochs")
-    parser.add_argument("--limit-train-batches", type=int, help="Limit train batches per epoch")
-    parser.add_argument("--limit-val-batches", type=int, help="Limit val batches per epoch")
-    parser.add_argument("--deterministic", action="store_true", help="Enable deterministic training")
-    return parser.parse_args()
-
-
-def set_seeds(seed: int, deterministic: bool):
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(seed)
-    if deterministic:
-        torch.backends.cudnn.deterministic = True
-        torch.backends.cudnn.benchmark = False
-
-
-def load_config(path: str) -> Dict:
-    with open(path, "r", encoding="utf-8") as f:
-        return yaml.safe_load(f)
-
-
-def resolve_config(cfg: Dict, args) -> Dict:
-    cfg = json.loads(json.dumps(cfg))
-    if args.max_epochs is not None:
-        cfg["training"]["max_epochs"] = args.max_epochs
-    if args.limit_train_batches is not None:
-        cfg["training"]["limit_train_batches"] = args.limit_train_batches
-    if args.limit_val_batches is not None:
-        cfg["training"]["limit_val_batches"] = args.limit_val_batches
-    if args.deterministic:
-        cfg["training"]["deterministic"] = True
-    return cfg
-
-
-def build_model(cfg: Dict, num_classes: int) -> UNet:
-    model_cfg = cfg["model"]
-    return UNet(
-        spatial_dims=3,
-        in_channels=model_cfg["in_channels"],
-        out_channels=num_classes,
-        channels=model_cfg["channels"],
-        strides=model_cfg["strides"],
-        num_res_units=model_cfg["num_res_units"],
-        norm=model_cfg["norm"],
-    )
-
-
-def build_dataloaders(cfg: Dict) -> Tuple[torch.utils.data.DataLoader, torch.utils.data.DataLoader]:
-    data_cfg = cfg["data"]
-    cases = list_msd_task01_cases(Path(data_cfg["root"]))
-    splits = build_splits(
-        cases,
-        train_ratio=data_cfg["train_ratio"],
-        val_ratio=data_cfg["val_ratio"],
-        seed=data_cfg.get("seed", 42),
-        list_files=data_cfg.get("list_files"),
-    )
-    num_classes = len(data_cfg.get("class_names", ["background", "tumor"]))
-    if data_cfg["label_mode"] == "binary":
-        num_classes = 2
-    roi_size = data_cfg.get("roi_size")
-    percentiles = tuple(data_cfg.get("percentiles", [0.5, 99.5]))
-
-    train_dataset = MSDTask01Dataset3D(
-        splits["train"],
-        roi_size=roi_size,
-        label_mode=data_cfg["label_mode"],
-        num_classes=num_classes,
-        pos_ratio=data_cfg.get("pos_ratio", 0.5),
-        percentiles=percentiles,
-        mode="train",
-        seed=data_cfg.get("seed", 42),
-    )
-    val_dataset = MSDTask01Dataset3D(
-        splits["val"],
-        roi_size=roi_size,
-        label_mode=data_cfg["label_mode"],
-        num_classes=num_classes,
-        pos_ratio=0.0,
-        percentiles=percentiles,
-        mode="val",
-        seed=data_cfg.get("seed", 42),
-    )
-
-    num_workers = cfg["training"]["num_workers"]
-    pin_memory = torch.cuda.is_available()
-    loader_kwargs = {
-        "num_workers": num_workers,
-        "pin_memory": pin_memory,
-        "persistent_workers": num_workers > 0,
-    }
-    if num_workers > 0:
-        loader_kwargs["prefetch_factor"] = 2
-    train_loader = torch.utils.data.DataLoader(
-        train_dataset,
-        batch_size=cfg["training"]["batch_size"],
-        shuffle=True,
-        drop_last=True,
-        **loader_kwargs,
-    )
-    val_loader = torch.utils.data.DataLoader(
-        val_dataset,
-        batch_size=cfg["training"]["batch_size"],
-        shuffle=False,
-        **loader_kwargs,
-    )
-    return train_loader, val_loader
-
-
-def _ensure_5d(tensor: torch.Tensor, name: str) -> torch.Tensor:
-    if tensor.ndim == 4:
-        return tensor.unsqueeze(0)
-    if tensor.ndim == 5:
-        return tensor
-    if tensor.ndim == 6 and tensor.shape[1] == 1:
-        return tensor.squeeze(1)
-    raise ValueError(f"{name} has unexpected shape {tuple(tensor.shape)}")
-
-
-def compute_dice(pred: torch.Tensor, target: torch.Tensor, include_background: bool) -> torch.Tensor:
-    pred = _ensure_5d(pred, "pred")
-    target = _ensure_5d(target, "target")
-    if pred.shape[0] != target.shape[0]:
-        raise ValueError(f"Batch mismatch: pred {pred.shape} vs target {target.shape}")
-    if target.shape[1] != pred.shape[1]:
-        target = torch.argmax(target, dim=1, keepdim=True)
-        target = torch.nn.functional.one_hot(
-            target.long().squeeze(1), num_classes=pred.shape[1]
-        ).permute(0, 4, 1, 2, 3).float()
-    target = target.to(pred.device)
-    pred = pred.float()
-    target = target.float()
-    if not include_background and pred.shape[1] > 1:
-        pred = pred[:, 1:]
-        target = target[:, 1:]
-    intersection = (pred * target).sum(dim=(2, 3, 4))
-    denom = pred.sum(dim=(2, 3, 4)) + target.sum(dim=(2, 3, 4))
-    dice = torch.where(denom > 0, (2.0 * intersection) / denom, torch.ones_like(denom))
-    return dice.mean(dim=0)
-
-
-def _normalize_slice(slice_array: np.ndarray) -> np.ndarray:
-    vmin = float(slice_array.min())
-    vmax = float(slice_array.max())
-    if vmax <= vmin:
-        return np.zeros_like(slice_array, dtype=np.uint8)
-    scaled = (slice_array - vmin) / (vmax - vmin)
-    return (scaled * 255.0).astype(np.uint8)
-
-
-def _select_slice_index(label_one_hot: np.ndarray) -> int:
-    if label_one_hot.shape[0] > 1:
-        foreground = label_one_hot[1:].sum(axis=0)
-    else:
-        foreground = label_one_hot[0]
-    areas = foreground.sum(axis=(1, 2))
-    if areas.max() == 0:
-        return label_one_hot.shape[1] // 2
-    return int(np.argmax(areas))
-
-
-def _make_overlay(input_slice: np.ndarray, gt_mask: np.ndarray, pred_mask: np.ndarray) -> np.ndarray:
-    base = np.stack([input_slice] * 3, axis=-1).astype(np.float32)
-    overlay = base.copy()
-    overlay[gt_mask > 0, 1] = 255
-    overlay[pred_mask > 0, 0] = 255
-    return overlay.astype(np.uint8)
-
-
-def _save_vis_images(vis_dir: Path, case_idx: int, input_slice, gt_slice, pred_slice, overlay):
-    Image.fromarray(input_slice).save(vis_dir / f"case_{case_idx}_input.png")
-    Image.fromarray(gt_slice).save(vis_dir / f"case_{case_idx}_gt.png")
-    Image.fromarray(pred_slice).save(vis_dir / f"case_{case_idx}_pred.png")
-    Image.fromarray(overlay).save(vis_dir / f"case_{case_idx}_overlay.png")
-
-
-def _log_visuals(
-    model: torch.nn.Module,
-    val_loader: torch.utils.data.DataLoader,
-    device: torch.device,
-    writer: SummaryWriter,
-    run_dir: Path,
-    epoch: int,
-    num_classes: int,
-    max_cases: int,
-):
-    vis_dir = run_dir / "vis" / f"epoch_{epoch:02d}"
-    vis_dir.mkdir(parents=True, exist_ok=True)
-    overlays = []
-    model.eval()
-    case_idx = 0
-    with torch.no_grad():
-        for images, labels in val_loader:
-            for b in range(images.shape[0]):
-                if case_idx >= max_cases:
-                    break
-                image = images[b : b + 1].to(device)
-                label = labels[b].cpu().numpy()
-                logits = model(image)
-                pred = torch.softmax(logits, dim=1).argmax(dim=1).cpu().numpy()[0]
-
-                slice_idx = _select_slice_index(label)
-                input_slice = images[b, 0, slice_idx].cpu().numpy()
-                input_slice = _normalize_slice(input_slice)
-
-                gt_slice = np.argmax(label[:, slice_idx], axis=0).astype(np.uint8)
-                pred_slice = pred[slice_idx].astype(np.uint8)
-
-                if num_classes > 1:
-                    scale = 255 // max(1, num_classes - 1)
-                else:
-                    scale = 255
-                pred_viz = (pred_slice * scale).astype(np.uint8)
-                gt_viz = (gt_slice * scale).astype(np.uint8)
-
-                overlay = _make_overlay(input_slice, gt_slice, pred_slice)
-                _save_vis_images(vis_dir, case_idx, input_slice, gt_viz, pred_viz, overlay)
-                overlays.append(overlay)
-                case_idx += 1
-            if case_idx >= max_cases:
-                break
-
-    if overlays:
-        grid = np.concatenate(overlays, axis=1)
-        writer.add_image("vis/overlay", grid, epoch, dataformats="HWC")
-
-
-def main():
-    args = parse_args()
-    cfg = resolve_config(load_config(args.config), args)
-    run_dir = Path(cfg["training"]["output_dir"]) / datetime.now().strftime("%Y%m%d_%H%M%S")
-    run_dir.mkdir(parents=True, exist_ok=True)
-    logger = setup_logging(run_dir / "train.log")
-
-    with (run_dir / "train_config_resolved.yaml").open("w", encoding="utf-8") as f:
-        yaml.safe_dump(cfg, f, sort_keys=False)
-
-    set_seeds(cfg["training"].get("seed", 42), cfg["training"].get("deterministic", False))
-
-    data_cfg = cfg["data"]
-    num_classes = len(data_cfg.get("class_names", ["background", "tumor"]))
-    if data_cfg["label_mode"] == "binary":
-        num_classes = 2
-
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = build_model(cfg, num_classes).to(device)
-
-    loss_fn = DiceCELoss(
-        to_onehot_y=False,
-        softmax=True,
-        include_background=True,
-    )
-    optimizer = torch.optim.Adam(model.parameters(), lr=cfg["training"]["learning_rate"])
-    scaler = torch.amp.GradScaler("cuda", enabled=torch.cuda.is_available())
-    post_pred = AsDiscrete(argmax=True, to_onehot=num_classes)
-
-    train_loader, val_loader = build_dataloaders(cfg)
-    log_interval = cfg["training"].get("log_interval", 0)
-    vis_interval = cfg["training"].get("vis_interval", 5)
-    max_vis_cases = cfg["training"].get("max_vis_cases", 3)
-    logger.info("Train batches per epoch: %s | Val batches: %s", len(train_loader), len(val_loader))
-    logger.info("Using device: %s", device)
-    logger.info("ROI size: %s", data_cfg.get("roi_size"))
-    logger.info("num_workers: %s", cfg["training"]["num_workers"])
-    logger.info(
-        "limit_train_batches: %s | limit_val_batches: %s",
-        cfg["training"].get("limit_train_batches"),
-        cfg["training"].get("limit_val_batches"),
-    )
-    if torch.cuda.is_available():
-        logger.info("GPU name: %s", torch.cuda.get_device_name(0))
-        logger.info("CUDA capability: %s", torch.cuda.get_device_capability(0))
-    logger.info("AMP enabled: %s", torch.cuda.is_available())
-    if "OMP_NUM_THREADS" not in os.environ or "MKL_NUM_THREADS" not in os.environ:
-        logger.warning(
-            "For best throughput set: OMP_NUM_THREADS=1 and MKL_NUM_THREADS=1"
-        )
-
-    best_dice = -1.0
-    metrics_path = run_dir / "metrics.csv"
-    tb_writer = SummaryWriter(log_dir=run_dir)
-    with metrics_path.open("w", newline="", encoding="utf-8") as f:
-        csv_writer = csv.writer(f)
-        csv_writer.writerow(["epoch", "train_loss", "val_mean_dice"])
-
-        for epoch in range(cfg["training"]["max_epochs"]):
-            logger.info("Epoch %s/%s", epoch + 1, cfg["training"]["max_epochs"])
-            if torch.cuda.is_available():
-                torch.cuda.reset_peak_memory_stats()
-            model.train()
-            train_loss = 0.0
-            batch_count = 0
-            step_time = 0.0
-            step_window = 0
-            for batch_idx, (images, labels) in enumerate(train_loader):
-                if cfg["training"].get("limit_train_batches") and batch_idx >= cfg["training"]["limit_train_batches"]:
-                    break
-                start = time.perf_counter()
-                images = images.to(device, non_blocking=True)
-                labels = labels.to(device, non_blocking=True)
-                optimizer.zero_grad(set_to_none=True)
-                with torch.autocast(device_type=device.type, enabled=torch.cuda.is_available()):
-                    logits = model(images)
-                    loss = loss_fn(logits, labels)
-                scaler.scale(loss).backward()
-                scaler.step(optimizer)
-                scaler.update()
-                train_loss += loss.item()
-                batch_count += 1
-                step_time += time.perf_counter() - start
-                step_window += 1
-                if log_interval and batch_idx % log_interval == 0:
-                    avg_step = step_time / max(1, step_window)
-                    logger.info(
-                        "  train step %s/%s loss=%.4f avg_step=%.3fs",
-                        batch_idx + 1,
-                        len(train_loader),
-                        loss.item(),
-                        avg_step,
-                    )
-                    step_time = 0.0
-                    step_window = 0
-
-            train_loss /= max(1, batch_count)
-
-            model.eval()
-            dice_scores: List[float] = []
-            dice_per_class: List[np.ndarray] = []
-            val_loss = 0.0
-            val_batches = 0
-            debug_shapes = cfg["training"].get("debug_shapes", False)
-            with torch.no_grad():
-                for val_idx, (images, labels) in enumerate(val_loader):
-                    if cfg["training"].get("limit_val_batches") and val_idx >= cfg["training"]["limit_val_batches"]:
-                        break
-                    images = images.to(device)
-                    labels = labels.to(device)
-                    logits = model(images)
-                    val_loss += loss_fn(logits, labels).item()
-                    val_batches += 1
-                    pred_labels = torch.argmax(logits, dim=1, keepdim=True)
-                    preds = torch.nn.functional.one_hot(
-                        pred_labels.squeeze(1), num_classes=num_classes
-                    ).permute(0, 4, 1, 2, 3).float()
-                    if debug_shapes and val_idx == 0:
-                        logger.info(
-                            "val shapes | images=%s labels=%s logits=%s preds=%s",
-                            tuple(images.shape),
-                            tuple(labels.shape),
-                            tuple(logits.shape),
-                            tuple(preds.shape),
-                        )
-                    dice = compute_dice(preds, labels, include_background=True)
-                    dice_scores.append(dice.mean().item())
-                    dice_per_class.append(dice.mean(dim=0).cpu().numpy())
-                    if log_interval and val_idx % log_interval == 0:
-                        logger.info(
-                            "  val step %s/%s mean_dice=%.4f",
-                            val_idx + 1,
-                            len(val_loader),
-                            dice.mean().item(),
-                        )
-
-            val_mean_dice = float(np.mean(dice_scores)) if dice_scores else 0.0
-            val_loss = val_loss / max(1, val_batches)
-            csv_writer.writerow([epoch + 1, f"{train_loss:.6f}", f"{val_mean_dice:.6f}"])
-            f.flush()
-
-            tb_writer.add_scalar("loss/train", train_loss, epoch + 1)
-            tb_writer.add_scalar("loss/val", val_loss, epoch + 1)
-            tb_writer.add_scalar("dice_mean/val", val_mean_dice, epoch + 1)
-            if dice_per_class and num_classes > 2:
-                per_class = np.mean(np.stack(dice_per_class, axis=0), axis=0)
-                for idx, score in enumerate(per_class):
-                    tb_writer.add_scalar(f"dice/val_class_{idx}", float(score), epoch + 1)
-            lr = optimizer.param_groups[0]["lr"]
-            tb_writer.add_scalar("lr", lr, epoch + 1)
-            if torch.cuda.is_available():
-                gpu_mem = torch.cuda.max_memory_allocated() / (1024**2)
-                tb_writer.add_scalar("gpu_mem_max_mb", gpu_mem, epoch + 1)
-
-            if torch.cuda.is_available():
-                gpu_mem = torch.cuda.max_memory_allocated() / (1024**2)
-            else:
-                gpu_mem = 0.0
-            logger.info(
-                "Epoch %s summary | train_loss=%.4f val_loss=%.4f val_mean_dice=%.4f lr=%.6f gpu_mem_max_mb=%.1f",
-                epoch + 1,
-                train_loss,
-                val_loss,
-                val_mean_dice,
-                lr,
-                gpu_mem,
-            )
-
-            if val_mean_dice > best_dice:
-                best_dice = val_mean_dice
-                torch.save(model.state_dict(), run_dir / "best.pt")
-
-            if (epoch + 1) % vis_interval == 0:
-                _log_visuals(
-                    model,
-                    val_loader,
-                    device,
-                    tb_writer,
-                    run_dir,
-                    epoch + 1,
-                    num_classes,
-                    max_vis_cases,
-                )
-
-    logger.info("Best val mean Dice: %.4f", best_dice)
-    logger.info("Run directory: %s", run_dir)
-    tb_writer.close()
-
-
-if __name__ == "__main__":
-    main()
-
-
---- tests/test_smoke_pipeline.py ---
-from pathlib import Path
-
-import imageio
-import nibabel as nib
-import numpy as np
-
-from src.data import prepare_slices
-
-
-def test_prepare_slices_msd_task01(tmp_path: Path):
-    images_dir = tmp_path / "imagesTr"
-    labels_dir = tmp_path / "labelsTr"
-    images_dir.mkdir(parents=True)
-    labels_dir.mkdir(parents=True)
-
-    image = np.random.rand(32, 32, 8, 4).astype("float32")
-    label = np.zeros((32, 32, 8), dtype="uint8")
-    label[8:16, 8:16, 3] = 1
-
-    image_path = images_dir / "brain_000.nii.gz"
-    label_path = labels_dir / "brain_000.nii.gz"
-    nib.save(nib.Nifti1Image(image, affine=np.eye(4)), str(image_path))
-    nib.save(nib.Nifti1Image(label, affine=np.eye(4)), str(label_path))
-
-    output_root = tmp_path / "Dataset"
-    prepare_slices.prepare_dataset(
-        dataset_root=tmp_path,
-        output_root=output_root,
-        slices_per_volume=2,
-        dataset_format="msd_task01",
-        channel="flair",
-        label_mode="binary",
-    )
-
-    pngs = sorted(output_root.rglob("*.png"))
-    assert len(pngs) == 4
-
-    mask_paths = sorted((output_root / "test_masks" / "test").glob("*.png"))
-    assert mask_paths
-    mask = imageio.imread(mask_paths[0])
-    assert mask.ndim == 2
-    assert mask.dtype == np.uint8
-    assert set(np.unique(mask)).issubset({0, 1})
-
---- tests/test_smoke_3d_pipeline.py ---
-import json
-from pathlib import Path
-
-import nibabel as nib
-import numpy as np
-import torch
-import yaml
-from monai.networks.nets import UNet
-
-from src.data.msd_task01_3d import MSDTask01Dataset3D, list_msd_task01_cases
-from src.eval_3d import main as eval_main
-
-
-def _write_msd_case(root: Path):
-    images_dir = root / "imagesTr"
-    labels_dir = root / "labelsTr"
-    images_dir.mkdir(parents=True)
-    labels_dir.mkdir(parents=True)
-
-    image = np.random.rand(16, 16, 16, 4).astype("float32")
-    label = np.zeros((16, 16, 16), dtype="uint8")
-    label[4:8, 4:8, 4:8] = 1
-
-    image_path = images_dir / "case_000.nii.gz"
-    label_path = labels_dir / "case_000.nii.gz"
-    nib.save(nib.Nifti1Image(image, affine=np.eye(4)), str(image_path))
-    nib.save(nib.Nifti1Image(label, affine=np.eye(4)), str(label_path))
-
-
-def test_3d_dataset_model_eval(tmp_path: Path, monkeypatch):
-    _write_msd_case(tmp_path)
-    cases = list_msd_task01_cases(tmp_path)
-    dataset = MSDTask01Dataset3D(
-        cases,
-        roi_size=(16, 16, 16),
-        label_mode="binary",
-        num_classes=2,
-        pos_ratio=1.0,
-        percentiles=(0.5, 99.5),
-        mode="train",
-        seed=123,
-    )
-
-    image, label = dataset[0]
-    assert image.shape == (4, 16, 16, 16)
-    assert label.shape == (2, 16, 16, 16)
-
-    model = UNet(
-        spatial_dims=3,
-        in_channels=4,
-        out_channels=2,
-        channels=(8, 16),
-        strides=(2,),
-        num_res_units=1,
-        norm="batch",
-    )
-    with torch.no_grad():
-        output = model(image.unsqueeze(0))
-    assert output.shape[1] == 2
-
-    weights_path = tmp_path / "weights.pt"
-    torch.save(model.state_dict(), weights_path)
-
-    config = {
-        "data": {
-            "root": str(tmp_path),
-            "train_ratio": 0.0,
-            "val_ratio": 1.0,
-            "seed": 42,
-            "label_mode": "binary",
-            "class_names": ["background", "tumor"],
-            "roi_size": [16, 16, 16],
-            "pos_ratio": 1.0,
-            "percentiles": [0.5, 99.5],
-        },
-        "model": {
-            "in_channels": 4,
-            "channels": [8, 16],
-            "strides": [2],
-            "num_res_units": 1,
-            "norm": "batch",
-        },
-        "training": {
-            "batch_size": 1,
-            "learning_rate": 0.0001,
-            "max_epochs": 1,
-            "num_workers": 0,
-            "seed": 42,
-            "deterministic": True,
-            "output_dir": "./outputs/runs",
-            "limit_train_batches": 1,
-            "limit_val_batches": 1,
-        },
-        "inference": {"roi_size": [16, 16, 16], "overlap": 0.0, "sw_batch_size": 1},
-    }
-    config_path = tmp_path / "config_3d.yaml"
-    with config_path.open("w", encoding="utf-8") as f:
-        yaml.safe_dump(config, f, sort_keys=False)
-
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(
-        "sys.argv",
-        ["python", "-m", "src.eval_3d", "--config", str(config_path), "--weights", str(weights_path)],
-    )
-    eval_main()
-
-    metrics_path = tmp_path / "outputs" / "metrics_3d.json"
-    assert metrics_path.exists()
-    metrics = json.loads(metrics_path.read_text())
-    assert "val" in metrics and "test" in metrics
+--- src/.DS_Store ---
+(binary file, contents omitted)
 
 --- src/__init__.py ---
 
---- src/eval.py ---
-import argparse
-import json
-from pathlib import Path
-from typing import Dict, List, Tuple
-
-import numpy as np
-import tensorflow as tf
-
-from src.data.dataset import build_dataloader
-from src.models.unet import build_unet
-from src.utils.config import apply_overrides, load_config, resolve_paths
-
-
-def parse_args():
-    parser = argparse.ArgumentParser(description="Evaluate U-Net on val/test splits")
-    parser.add_argument("--config", default="configs/config.yaml", help="Path to YAML config file")
-    parser.add_argument("--data-root", dest="data_root", help="Override dataset root directory")
-    parser.add_argument("--batch-size", type=int, help="Override batch size")
-    parser.add_argument("--weights", help="Path to model weights .h5 file")
-    parser.add_argument(
-        "--dataset-format",
-        choices=["brats", "msd_task01"],
-        default="brats",
-        help="Dataset format used to generate slices",
-    )
-    parser.add_argument(
-        "--label-mode",
-        choices=["binary", "multiclass"],
-        default="binary",
-        help="Label mode used to generate masks",
-    )
-    return parser.parse_args()
-
-
-def build_model(cfg) -> tf.keras.Model:
-    image_size = cfg["data"]["image_size"]
-    input_channels = cfg["model"]["input_channels"]
-    class_names = cfg["data"]["class_names"]
-    model = build_unet(
-        input_size=(image_size, image_size, input_channels),
-        num_classes=len(class_names),
-        base_filters=cfg["model"].get("base_filters", 32),
-        learning_rate=cfg["training"]["learning_rate"],
-    )
-    return model
-
-
-def resolve_weights_path(cfg, weights_override: str = None) -> Path:
-    if weights_override:
-        return Path(weights_override).expanduser().resolve()
-    checkpoint_dir = Path(cfg["training"]["checkpoint_dir"])
-    checkpoint_name = cfg["training"]["checkpoint_filename"]
-    return (checkpoint_dir / checkpoint_name).expanduser().resolve()
-
-
-def accumulate_dice(
-    model: tf.keras.Model,
-    loader,
-    num_classes: int,
-) -> Tuple[List[float], float]:
-    intersections = np.zeros(num_classes, dtype=np.float64)
-    totals = np.zeros(num_classes, dtype=np.float64)
-    for images, masks in loader:
-        preds = model.predict(images, verbose=0)
-        pred_classes = np.argmax(preds, axis=-1)
-        true_classes = np.argmax(masks, axis=-1)
-        for class_idx in range(num_classes):
-            pred_mask = pred_classes == class_idx
-            true_mask = true_classes == class_idx
-            intersections[class_idx] += np.logical_and(pred_mask, true_mask).sum()
-            totals[class_idx] += pred_mask.sum() + true_mask.sum()
-
-    dice_per_class = []
-    for class_idx in range(num_classes):
-        if totals[class_idx] == 0:
-            dice = 1.0
-        else:
-            dice = (2.0 * intersections[class_idx]) / totals[class_idx]
-        dice_per_class.append(float(dice))
-    mean_dice = float(np.mean(dice_per_class)) if dice_per_class else 0.0
-    return dice_per_class, mean_dice
-
-
-def evaluate_split(model: tf.keras.Model, cfg, split_name: str) -> Dict[str, float]:
-    class_names = cfg["data"]["class_names"]
-    images_dir = cfg["data"][f"{split_name}_images"]
-    masks_dir = cfg["data"][f"{split_name}_masks"]
-    batch_size = cfg["training"]["batch_size"]
-    if not images_dir.exists() or not masks_dir.exists():
-        raise FileNotFoundError(f"Missing {split_name} data at {images_dir} or {masks_dir}")
-    loader = build_dataloader(
-        images_dir,
-        masks_dir,
-        class_names,
-        batch_size=batch_size,
-        image_size=cfg["data"]["image_size"],
-        augmentation=None,
-        shuffle=False,
-    )
-    if len(loader) == 0:
-        raise ValueError(f"No samples found for {split_name} split")
-    dice_per_class, mean_dice = accumulate_dice(model, loader, len(class_names))
-    return {
-        "dice_per_class": dict(zip(class_names, dice_per_class)),
-        "mean_dice": mean_dice,
-    }
-
-
-def main():
-    args = parse_args()
-    cfg = load_config(args.config)
-    cfg = apply_overrides(cfg, args)
-    if args.batch_size:
-        cfg["training"]["batch_size"] = args.batch_size
-    cfg = resolve_paths(cfg)
-
-    weights_path = resolve_weights_path(cfg, args.weights)
-    if not weights_path.exists():
-        raise FileNotFoundError(f"Model weights not found at {weights_path}")
-
-    model = build_model(cfg)
-    model.load_weights(weights_path)
-
-    metrics = {
-        "dataset_format": args.dataset_format,
-        "label_mode": args.label_mode,
-        "val": evaluate_split(model, cfg, "val"),
-        "test": evaluate_split(model, cfg, "test"),
-    }
-
-    output_dir = Path("outputs").resolve()
-    output_dir.mkdir(parents=True, exist_ok=True)
-    metrics_path = output_dir / "metrics.json"
-    with metrics_path.open("w", encoding="utf-8") as f:
-        json.dump(metrics, f, indent=2)
-    print(f"Wrote metrics to {metrics_path}")
-
-
-if __name__ == "__main__":
-    main()
-
---- src/eval_3d.py ---
-import argparse
-import json
-import logging
-import subprocess
-import time
-from pathlib import Path
-from typing import Dict, List, Tuple
-
-import numpy as np
-import torch
-import yaml
-from monai.inferers import sliding_window_inference
-from monai.networks.nets import UNet
-
-from src.data.msd_task01_3d import MSDTask01Dataset3D, build_splits, list_msd_task01_cases
-
-
-def parse_args():
-    parser = argparse.ArgumentParser(description="Evaluate 3D U-Net on MSD Task01")
-    parser.add_argument("--config", default="configs/config_3d.yaml", help="Path to YAML config file")
-    parser.add_argument("--weights", required=True, help="Path to model weights .pt")
-    return parser.parse_args()
-
-
-def load_config(path: str) -> Dict:
-    with open(path, "r", encoding="utf-8") as f:
-        return yaml.safe_load(f)
-
-
-def build_model(cfg: Dict, num_classes: int) -> UNet:
-    model_cfg = cfg["model"]
-    return UNet(
-        spatial_dims=3,
-        in_channels=model_cfg["in_channels"],
-        out_channels=num_classes,
-        channels=model_cfg["channels"],
-        strides=model_cfg["strides"],
-        num_res_units=model_cfg["num_res_units"],
-        norm=model_cfg["norm"],
-    )
-
-
-def get_git_hash() -> str:
-    try:
-        result = subprocess.run(
-            ["git", "rev-parse", "--short", "HEAD"],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-        return result.stdout.strip()
-    except Exception:
-        return ""
-
-
-def _ensure_5d(tensor: torch.Tensor, name: str) -> torch.Tensor:
-    if tensor.ndim == 4:
-        return tensor.unsqueeze(0)
-    if tensor.ndim == 5:
-        return tensor
-    raise ValueError(f"{name} has unexpected shape {tuple(tensor.shape)}")
-
-
-def _compute_dice(pred: torch.Tensor, target: torch.Tensor, include_background: bool) -> torch.Tensor:
-    pred = _ensure_5d(pred, "pred")
-    target = _ensure_5d(target, "target")
-    if target.shape[1] != pred.shape[1]:
-        target = torch.argmax(target, dim=1, keepdim=True)
-        target = torch.nn.functional.one_hot(
-            target.long().squeeze(1), num_classes=pred.shape[1]
-        ).permute(0, 4, 1, 2, 3).float()
-    target = target.to(pred.device)
-    pred = pred.float()
-    target = target.float()
-    if not include_background and pred.shape[1] > 1:
-        pred = pred[:, 1:]
-        target = target[:, 1:]
-    intersection = (pred * target).sum(dim=(2, 3, 4))
-    denom = pred.sum(dim=(2, 3, 4)) + target.sum(dim=(2, 3, 4))
-    dice = torch.where(denom > 0, (2.0 * intersection) / denom, torch.ones_like(denom))
-    return dice.mean(dim=0)
-
-
-def setup_logging():
-    logger = logging.getLogger("eval_3d")
-    logger.setLevel(logging.INFO)
-    if not logger.handlers:
-        handler = logging.StreamHandler()
-        formatter = logging.Formatter("%(asctime)s | %(levelname)s | %(message)s")
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
-    return logger
-
-
-def evaluate_split(
-    model: torch.nn.Module,
-    dataset: torch.utils.data.Dataset,
-    device: torch.device,
-    roi_size: Tuple[int, int, int],
-    overlap: float,
-    sw_batch_size: int,
-    num_classes: int,
-    logger: logging.Logger,
-    split_name: str,
-    log_interval: int = 1,
-) -> Tuple[List[float], int]:
-    model.eval()
-
-    dice_scores = []
-    with torch.no_grad():
-        start_time = time.perf_counter()
-        for idx, (image, label) in enumerate(dataset, start=1):
-            image = image.unsqueeze(0).to(device)
-            label = label.unsqueeze(0).to(device)
-            logits = sliding_window_inference(
-                image, roi_size=roi_size, sw_batch_size=sw_batch_size, predictor=model, overlap=overlap
-            )
-            pred_labels = torch.argmax(logits, dim=1, keepdim=True)
-            pred = torch.nn.functional.one_hot(
-                pred_labels.squeeze(1), num_classes=num_classes
-            ).permute(0, 4, 1, 2, 3).float()
-            dice = _compute_dice(pred, label, include_background=True)
-            dice_scores.append(dice.cpu().numpy())
-            if log_interval and idx % log_interval == 0:
-                elapsed = time.perf_counter() - start_time
-                logger.info(
-                    "%s volume %s/%s | avg_time=%.2fs",
-                    split_name,
-                    idx,
-                    len(dataset),
-                    elapsed / idx,
-                )
-
-    if not dice_scores:
-        return [0.0] * num_classes, 0
-    dice_scores = np.stack(dice_scores, axis=0)
-    return dice_scores.mean(axis=0).tolist(), len(dice_scores)
-
-
-def main():
-    args = parse_args()
-    cfg = load_config(args.config)
-    data_cfg = cfg["data"]
-    inference_cfg = cfg["inference"]
-
-    cases = list_msd_task01_cases(Path(data_cfg["root"]))
-    splits = build_splits(
-        cases,
-        train_ratio=data_cfg["train_ratio"],
-        val_ratio=data_cfg["val_ratio"],
-        seed=data_cfg.get("seed", 42),
-        list_files=data_cfg.get("list_files"),
-    )
-
-    num_classes = len(data_cfg.get("class_names", ["background", "tumor"]))
-    if data_cfg["label_mode"] == "binary":
-        num_classes = 2
-
-    percentiles = tuple(data_cfg.get("percentiles", [0.5, 99.5]))
-    val_dataset = MSDTask01Dataset3D(
-        splits["val"],
-        roi_size=None,
-        label_mode=data_cfg["label_mode"],
-        num_classes=num_classes,
-        pos_ratio=0.0,
-        percentiles=percentiles,
-        mode="val",
-        seed=data_cfg.get("seed", 42),
-    )
-    test_dataset = MSDTask01Dataset3D(
-        splits["test"],
-        roi_size=None,
-        label_mode=data_cfg["label_mode"],
-        num_classes=num_classes,
-        pos_ratio=0.0,
-        percentiles=percentiles,
-        mode="test",
-        seed=data_cfg.get("seed", 42),
-    )
-
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = build_model(cfg, num_classes).to(device)
-    model.load_state_dict(torch.load(args.weights, map_location=device))
-
-    roi_size = tuple(inference_cfg["roi_size"])
-    overlap = inference_cfg["overlap"]
-    sw_batch_size = inference_cfg["sw_batch_size"]
-
-    logger = setup_logging()
-    logger.info("Using device: %s", device)
-    logger.info("ROI size: %s | overlap: %s | sw_batch_size: %s", roi_size, overlap, sw_batch_size)
-    logger.info("Val volumes: %s | Test volumes: %s", len(val_dataset), len(test_dataset))
-
-    val_dice, val_count = evaluate_split(
-        model, val_dataset, device, roi_size, overlap, sw_batch_size, num_classes, logger, "val"
-    )
-    test_dice, test_count = evaluate_split(
-        model, test_dataset, device, roi_size, overlap, sw_batch_size, num_classes, logger, "test"
-    )
-
-    class_names = data_cfg.get("class_names", [f"class_{i}" for i in range(num_classes)])
-    if len(class_names) != num_classes:
-        class_names = [f"class_{i}" for i in range(num_classes)]
-
-    metrics = {
-        "dataset_format": "msd_task01",
-        "label_mode": data_cfg["label_mode"],
-        "val": {
-            "dice_per_class": dict(zip(class_names, [float(x) for x in val_dice])),
-            "mean_dice": float(np.mean(val_dice)) if val_dice else 0.0,
-            "number_of_volumes": val_count,
-        },
-        "test": {
-            "dice_per_class": dict(zip(class_names, [float(x) for x in test_dice])),
-            "mean_dice": float(np.mean(test_dice)) if test_dice else 0.0,
-            "number_of_volumes": test_count,
-        },
-        "inference": {
-            "roi_size": list(roi_size),
-            "overlap": overlap,
-            "sw_batch_size": sw_batch_size,
-        },
-    }
-
-    git_hash = get_git_hash()
-    if git_hash:
-        metrics["git_commit"] = git_hash
-
-    output_dir = Path("outputs")
-    output_dir.mkdir(parents=True, exist_ok=True)
-    output_path = output_dir / "metrics_3d.json"
-    with output_path.open("w", encoding="utf-8") as f:
-        json.dump(metrics, f, indent=2)
-    print(f"Wrote metrics to {output_path}")
-
-
-if __name__ == "__main__":
-    main()
-
-
---- src/utils/__init__.py ---
-
---- src/utils/config.py ---
-import argparse
-import copy
-from pathlib import Path
-from typing import Any, Dict
-import yaml
-
-def load_config(config_path: str) -> Dict[str, Any]:
-    with open(config_path, "r", encoding="utf-8") as f:
-        cfg = yaml.safe_load(f)
-    return cfg
-
-def apply_overrides(cfg: Dict[str, Any], args: argparse.Namespace) -> Dict[str, Any]:
-    cfg = copy.deepcopy(cfg)
-    if getattr(args, "data_root", None):
-        cfg["data"]["root"] = args.data_root
-    if getattr(args, "epochs", None):
-        cfg["training"]["epochs"] = args.epochs
-    if getattr(args, "batch_size", None):
-        cfg["training"]["batch_size"] = args.batch_size
-    if getattr(args, "learning_rate", None):
-        cfg["training"]["learning_rate"] = args.learning_rate
-    return cfg
-
-def resolve_paths(cfg: Dict[str, Any]) -> Dict[str, Any]:
-    cfg = copy.deepcopy(cfg)
-    data_root = Path(cfg["data"]["root"]).expanduser().resolve()
-    cfg["data"]["root"] = data_root
-    for key in [
-        "train_images",
-        "train_masks",
-        "val_images",
-        "val_masks",
-        "test_images",
-        "test_masks",
-    ]:
-        cfg["data"][key] = (data_root / cfg["data"][key]).resolve()
-    training = cfg.get("training", {})
-    for path_key in ["log_dir", "checkpoint_dir"]:
-        if path_key in training:
-            training[path_key] = Path(training[path_key]).expanduser().resolve()
-            training[path_key].mkdir(parents=True, exist_ok=True)
-    return cfg
 
 --- src/data/__init__.py ---
+
 
 --- src/data/augmentations.py ---
 import albumentations as A
@@ -1684,6 +1204,109 @@ def get_training_augmentation():
             A.Transpose(p=0.5),
         ], p=1),
     ])
+
+--- src/data/bias_correction.py ---
+import argparse
+import glob
+import os
+import shutil
+from pathlib import Path
+from typing import Iterable
+
+import SimpleITK as sitk
+
+MODALITIES = ("flair", "t1", "t1ce", "t2")
+
+
+def correct_bias(in_path, out_path, image_type=sitk.sitkFloat64):
+    input_image = sitk.ReadImage(in_path, image_type)
+    output_image = sitk.N4BiasFieldCorrection(input_image, input_image > 0)
+    sitk.WriteImage(output_image, out_path)
+    return os.path.abspath(out_path)
+
+
+def get_image_path(subject_folder, name):
+    file_name = os.path.join(subject_folder, f"*{name}.nii.gz")
+    matches = glob.glob(file_name)
+    if not matches:
+        raise FileNotFoundError(f"Could not find modality {name} in {subject_folder}")
+    return matches[0]
+
+
+def normalize_image(in_path, out_path, bias_correction=True):
+    if bias_correction:
+        correct_bias(in_path, out_path)
+    else:
+        shutil.copy(in_path, out_path)
+
+
+def preprocess_brats_folder(
+    in_folder: Path,
+    out_folder: Path,
+    modalities: Iterable[str],
+    truth_name: str,
+    no_bias_correction_modalities: Iterable[str],
+):
+    for name in modalities:
+        image_image = get_image_path(in_folder, name)
+        case_id = os.path.basename(out_folder)
+        out_path = os.path.abspath(os.path.join(out_folder, f"{case_id}_{name}.nii.gz"))
+        perform_bias_correction = name not in no_bias_correction_modalities
+        normalize_image(image_image, out_path, bias_correction=perform_bias_correction)
+
+    truth_image = get_image_path(in_folder, truth_name)
+    out_path = os.path.abspath(os.path.join(out_folder, f"{case_id}_truth.nii.gz"))
+    shutil.copy(truth_image, out_path)
+
+
+def preprocess_brats_data(
+    brats_folder: Path,
+    out_folder: Path,
+    overwrite: bool = False,
+    no_bias_correction_modalities: Iterable[str] = ("flair",),
+    modalities: Iterable[str] = MODALITIES,
+):
+    for subject_folder in glob.glob(os.path.join(brats_folder, "*", "*")):
+        if os.path.isdir(subject_folder):
+            subject = os.path.basename(subject_folder)
+            new_subject_folder = os.path.join(out_folder, os.path.basename(os.path.dirname(subject_folder)), subject)
+            if not os.path.exists(new_subject_folder) or overwrite:
+                if not os.path.exists(new_subject_folder):
+                    os.makedirs(new_subject_folder)
+                preprocess_brats_folder(
+                    Path(subject_folder),
+                    Path(new_subject_folder),
+                    modalities=modalities,
+                    truth_name="seg",
+                    no_bias_correction_modalities=no_bias_correction_modalities,
+                )
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Run N4 bias-field correction on BraTS data")
+    parser.add_argument("--input-dir", required=True, help="Path to raw BraTS dataset")
+    parser.add_argument("--output-dir", required=True, help="Where to write corrected data")
+    parser.add_argument("--skip-modalities", nargs="*", default=["flair"], help="Modalities to skip bias correction")
+    parser.add_argument("--overwrite", action="store_true", help="Overwrite existing output")
+    return parser.parse_args()
+
+
+def main():
+    args = parse_args()
+    input_dir = Path(args.input_dir).expanduser().resolve()
+    output_dir = Path(args.output_dir).expanduser().resolve()
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    preprocess_brats_data(
+        brats_folder=input_dir,
+        out_folder=output_dir,
+        overwrite=args.overwrite,
+        no_bias_correction_modalities=args.skip_modalities,
+    )
+
+
+if __name__ == "__main__":
+    main()
 
 --- src/data/dataset.py ---
 import math
@@ -1779,6 +1402,226 @@ def build_dataloader(
 ) -> DataLoader:
     dataset = SliceDataset(images_dir, masks_dir, class_names, image_size, augmentation)
     return DataLoader(dataset=dataset, batch_size=batch_size, shuffle=shuffle)
+
+--- src/data/msd_task01_3d.py ---
+import random
+from pathlib import Path
+from typing import Dict, List, Optional, Sequence, Tuple
+
+import nibabel as nib
+import numpy as np
+import torch
+
+
+def list_msd_task01_cases(dataset_root: Path) -> List[Tuple[Path, Path]]:
+    images_dir = dataset_root / "imagesTr"
+    labels_dir = dataset_root / "labelsTr"
+    if not images_dir.exists() or not labels_dir.exists():
+        raise FileNotFoundError("Expected imagesTr/ and labelsTr/ in MSD Task01 root")
+    images = sorted(p for p in images_dir.glob("*.nii.gz") if not p.name.startswith("._"))
+    labels = {
+        p.stem.replace(".nii", ""): p
+        for p in labels_dir.glob("*.nii.gz")
+        if not p.name.startswith("._")
+    }
+    pairs = []
+    for image_path in images:
+        key = image_path.stem.replace(".nii", "")
+        if key not in labels:
+            raise FileNotFoundError(f"Missing label for {image_path.name}")
+        pairs.append((image_path, labels[key]))
+    return pairs
+
+
+def split_cases(
+    cases: Sequence[Tuple[Path, Path]],
+    train_ratio: float,
+    val_ratio: float,
+    seed: int,
+) -> Dict[str, List[Tuple[Path, Path]]]:
+    rng = random.Random(seed)
+    indices = list(range(len(cases)))
+    rng.shuffle(indices)
+    shuffled = [cases[i] for i in indices]
+    train_split = int(train_ratio * len(shuffled))
+    val_split = int((train_ratio + val_ratio) * len(shuffled))
+    return {
+        "train": shuffled[:train_split],
+        "val": shuffled[train_split:val_split],
+        "test": shuffled[val_split:],
+    }
+
+
+def _case_id(path: Path) -> str:
+    return path.stem.replace(".nii", "")
+
+
+def load_case_ids(list_path: Path) -> List[str]:
+    with list_path.open("r", encoding="utf-8") as f:
+        lines = [line.strip() for line in f.readlines()]
+    return [line for line in lines if line and not line.startswith("#")]
+
+
+def build_splits(
+    cases: Sequence[Tuple[Path, Path]],
+    train_ratio: float,
+    val_ratio: float,
+    seed: int,
+    list_files: Optional[Dict[str, Optional[str]]] = None,
+) -> Dict[str, List[Tuple[Path, Path]]]:
+    if list_files and any(list_files.values()):
+        required = ["train", "val", "test"]
+        if not all(list_files.get(key) for key in required):
+            raise ValueError("list_files must include train, val, and test lists when provided")
+        case_map = {_case_id(img): (img, lbl) for img, lbl in cases}
+        splits = {}
+        for key in required:
+            ids = load_case_ids(Path(list_files[key]))
+            missing = [case_id for case_id in ids if case_id not in case_map]
+            if missing:
+                raise FileNotFoundError(f"Missing cases for split '{key}': {missing[:3]}")
+            splits[key] = [case_map[case_id] for case_id in ids]
+        return splits
+    return split_cases(cases, train_ratio=train_ratio, val_ratio=val_ratio, seed=seed)
+
+
+def _to_channel_first(volume: np.ndarray) -> np.ndarray:
+    if volume.ndim != 4:
+        raise ValueError(f"Expected 4D volume, got shape {volume.shape}")
+    if volume.shape[-1] == 4:
+        return np.transpose(volume, (3, 2, 0, 1))
+    if volume.shape[0] == 4:
+        return np.transpose(volume, (0, 3, 1, 2))
+    raise ValueError(f"Unexpected channel dimension for volume with shape {volume.shape}")
+
+
+def normalize_modalities(
+    volume: np.ndarray,
+    percentiles: Tuple[float, float],
+) -> np.ndarray:
+    normalized = np.zeros_like(volume, dtype=np.float32)
+    for idx in range(volume.shape[0]):
+        channel = volume[idx]
+        mask = channel != 0
+        if mask.any():
+            lo, hi = np.percentile(channel[mask], percentiles)
+            channel = np.clip(channel, lo, hi)
+            mean = channel[mask].mean()
+            std = channel[mask].std()
+        else:
+            mean = channel.mean()
+            std = channel.std()
+        std = std if std > 0 else 1.0
+        normalized[idx] = (channel - mean) / std
+    return normalized
+
+
+def one_hot_encode(label: np.ndarray, num_classes: int) -> np.ndarray:
+    label = label.astype(np.int64)
+    if label.ndim != 3:
+        raise ValueError(f"Expected 3D label volume, got shape {label.shape}")
+    one_hot = np.eye(num_classes, dtype=np.float32)[label]
+    return np.transpose(one_hot, (3, 2, 0, 1))
+
+
+def _pad_to_shape(volume: np.ndarray, target_shape: Sequence[int]) -> np.ndarray:
+    pad_width = []
+    for dim, target in zip(volume.shape, target_shape):
+        total = max(target - dim, 0)
+        pad_before = total // 2
+        pad_after = total - pad_before
+        pad_width.append((pad_before, pad_after))
+    return np.pad(volume, pad_width, mode="constant")
+
+
+def crop_or_pad(volume: np.ndarray, center: Sequence[int], roi_size: Sequence[int]) -> np.ndarray:
+    volume = _pad_to_shape(volume, roi_size)
+    slices = []
+    for dim, c, size in zip(volume.shape, center, roi_size):
+        start = int(c - size // 2)
+        start = max(start, 0)
+        end = start + size
+        if end > dim:
+            end = dim
+            start = end - size
+        slices.append(slice(start, end))
+    return volume[tuple(slices)]
+
+
+def sample_center(
+    label: np.ndarray,
+    roi_size: Sequence[int],
+    pos_ratio: float,
+    rng: np.random.Generator,
+) -> Tuple[int, int, int]:
+    foreground = np.argwhere(label > 0)
+    if foreground.size > 0 and rng.random() < pos_ratio:
+        center = foreground[rng.integers(0, len(foreground))]
+    else:
+        center = np.array([rng.integers(0, dim) for dim in label.shape])
+    center = np.maximum(center, np.array(roi_size) // 2)
+    center = np.minimum(center, np.array(label.shape) - np.array(roi_size) // 2 - 1)
+    return tuple(center.tolist())
+
+
+class MSDTask01Dataset3D(torch.utils.data.Dataset):
+    def __init__(
+        self,
+        cases: Sequence[Tuple[Path, Path]],
+        roi_size: Optional[Sequence[int]],
+        label_mode: str,
+        num_classes: int,
+        pos_ratio: float,
+        percentiles: Tuple[float, float],
+        mode: str = "train",
+        seed: int = 42,
+        max_pos_attempts: int = 10,
+    ):
+        self.cases = list(cases)
+        self.roi_size = tuple(roi_size) if roi_size is not None else None
+        self.label_mode = label_mode
+        self.num_classes = num_classes
+        self.pos_ratio = pos_ratio
+        self.percentiles = percentiles
+        self.mode = mode
+        self.rng = np.random.default_rng(seed)
+        self.max_pos_attempts = max_pos_attempts
+
+    def __len__(self):
+        return len(self.cases)
+
+    def __getitem__(self, idx: int):
+        image_path, label_path = self.cases[idx]
+        image = nib.load(str(image_path)).get_fdata().astype(np.float32)
+        label = nib.load(str(label_path)).get_fdata().astype(np.int64)
+
+        image = _to_channel_first(image)
+        image = normalize_modalities(image, self.percentiles)
+        label = label.astype(np.int64)
+
+        if self.label_mode == "binary":
+            label = (label > 0).astype(np.int64)
+            num_classes = 2
+        else:
+            num_classes = self.num_classes
+
+        if self.roi_size is not None:
+            has_foreground = np.any(label > 0)
+            want_pos = has_foreground and self.rng.random() < self.pos_ratio
+            center = sample_center(label, self.roi_size, 1.0 if want_pos else 0.0, self.rng)
+            if want_pos:
+                for _ in range(self.max_pos_attempts):
+                    center = sample_center(label, self.roi_size, 1.0, self.rng)
+                    label_patch = crop_or_pad(label, center, self.roi_size)
+                    if np.any(label_patch > 0):
+                        break
+            image = np.stack([crop_or_pad(ch, center, self.roi_size) for ch in image], axis=0)
+            label = crop_or_pad(label, center, self.roi_size)
+
+        label_one_hot = one_hot_encode(label, num_classes)
+        image_tensor = torch.from_numpy(image.astype(np.float32))
+        label_tensor = torch.from_numpy(label_one_hot.astype(np.float32))
+        return image_tensor, label_tensor
 
 --- src/data/prepare_slices.py ---
 import argparse
@@ -2043,315 +1886,459 @@ def main():
 if __name__ == "__main__":
     main()
 
---- src/data/msd_task01_3d.py ---
-import random
-from pathlib import Path
-from typing import Dict, List, Optional, Sequence, Tuple
-
-import nibabel as nib
-import numpy as np
-import torch
-
-
-def list_msd_task01_cases(dataset_root: Path) -> List[Tuple[Path, Path]]:
-    images_dir = dataset_root / "imagesTr"
-    labels_dir = dataset_root / "labelsTr"
-    if not images_dir.exists() or not labels_dir.exists():
-        raise FileNotFoundError("Expected imagesTr/ and labelsTr/ in MSD Task01 root")
-    images = sorted(p for p in images_dir.glob("*.nii.gz") if not p.name.startswith("._"))
-    labels = {
-        p.stem.replace(".nii", ""): p
-        for p in labels_dir.glob("*.nii.gz")
-        if not p.name.startswith("._")
-    }
-    pairs = []
-    for image_path in images:
-        key = image_path.stem.replace(".nii", "")
-        if key not in labels:
-            raise FileNotFoundError(f"Missing label for {image_path.name}")
-        pairs.append((image_path, labels[key]))
-    return pairs
-
-
-def split_cases(
-    cases: Sequence[Tuple[Path, Path]],
-    train_ratio: float,
-    val_ratio: float,
-    seed: int,
-) -> Dict[str, List[Tuple[Path, Path]]]:
-    rng = random.Random(seed)
-    indices = list(range(len(cases)))
-    rng.shuffle(indices)
-    shuffled = [cases[i] for i in indices]
-    train_split = int(train_ratio * len(shuffled))
-    val_split = int((train_ratio + val_ratio) * len(shuffled))
-    return {
-        "train": shuffled[:train_split],
-        "val": shuffled[train_split:val_split],
-        "test": shuffled[val_split:],
-    }
-
-
-def _case_id(path: Path) -> str:
-    return path.stem.replace(".nii", "")
-
-
-def load_case_ids(list_path: Path) -> List[str]:
-    with list_path.open("r", encoding="utf-8") as f:
-        lines = [line.strip() for line in f.readlines()]
-    return [line for line in lines if line and not line.startswith("#")]
-
-
-def build_splits(
-    cases: Sequence[Tuple[Path, Path]],
-    train_ratio: float,
-    val_ratio: float,
-    seed: int,
-    list_files: Optional[Dict[str, Optional[str]]] = None,
-) -> Dict[str, List[Tuple[Path, Path]]]:
-    if list_files and any(list_files.values()):
-        required = ["train", "val", "test"]
-        if not all(list_files.get(key) for key in required):
-            raise ValueError("list_files must include train, val, and test lists when provided")
-        case_map = {_case_id(img): (img, lbl) for img, lbl in cases}
-        splits = {}
-        for key in required:
-            ids = load_case_ids(Path(list_files[key]))
-            missing = [case_id for case_id in ids if case_id not in case_map]
-            if missing:
-                raise FileNotFoundError(f"Missing cases for split '{key}': {missing[:3]}")
-            splits[key] = [case_map[case_id] for case_id in ids]
-        return splits
-    return split_cases(cases, train_ratio=train_ratio, val_ratio=val_ratio, seed=seed)
-
-
-def _to_channel_first(volume: np.ndarray) -> np.ndarray:
-    if volume.ndim != 4:
-        raise ValueError(f"Expected 4D volume, got shape {volume.shape}")
-    if volume.shape[-1] == 4:
-        return np.transpose(volume, (3, 2, 0, 1))
-    if volume.shape[0] == 4:
-        return np.transpose(volume, (0, 3, 1, 2))
-    raise ValueError(f"Unexpected channel dimension for volume with shape {volume.shape}")
-
-
-def normalize_modalities(
-    volume: np.ndarray,
-    percentiles: Tuple[float, float],
-) -> np.ndarray:
-    normalized = np.zeros_like(volume, dtype=np.float32)
-    for idx in range(volume.shape[0]):
-        channel = volume[idx]
-        mask = channel != 0
-        if mask.any():
-            lo, hi = np.percentile(channel[mask], percentiles)
-            channel = np.clip(channel, lo, hi)
-            mean = channel[mask].mean()
-            std = channel[mask].std()
-        else:
-            mean = channel.mean()
-            std = channel.std()
-        std = std if std > 0 else 1.0
-        normalized[idx] = (channel - mean) / std
-    return normalized
-
-
-def one_hot_encode(label: np.ndarray, num_classes: int) -> np.ndarray:
-    label = label.astype(np.int64)
-    if label.ndim != 3:
-        raise ValueError(f"Expected 3D label volume, got shape {label.shape}")
-    one_hot = np.eye(num_classes, dtype=np.float32)[label]
-    return np.transpose(one_hot, (3, 2, 0, 1))
-
-
-def _pad_to_shape(volume: np.ndarray, target_shape: Sequence[int]) -> np.ndarray:
-    pad_width = []
-    for dim, target in zip(volume.shape, target_shape):
-        total = max(target - dim, 0)
-        pad_before = total // 2
-        pad_after = total - pad_before
-        pad_width.append((pad_before, pad_after))
-    return np.pad(volume, pad_width, mode="constant")
-
-
-def crop_or_pad(volume: np.ndarray, center: Sequence[int], roi_size: Sequence[int]) -> np.ndarray:
-    volume = _pad_to_shape(volume, roi_size)
-    slices = []
-    for dim, c, size in zip(volume.shape, center, roi_size):
-        start = int(c - size // 2)
-        start = max(start, 0)
-        end = start + size
-        if end > dim:
-            end = dim
-            start = end - size
-        slices.append(slice(start, end))
-    return volume[tuple(slices)]
-
-
-def sample_center(label: np.ndarray, roi_size: Sequence[int], pos_ratio: float, rng: np.random.Generator) -> Tuple[int, int, int]:
-    foreground = np.argwhere(label > 0)
-    if foreground.size > 0 and rng.random() < pos_ratio:
-        center = foreground[rng.integers(0, len(foreground))]
-    else:
-        center = np.array([rng.integers(0, dim) for dim in label.shape])
-    center = np.maximum(center, np.array(roi_size) // 2)
-    center = np.minimum(center, np.array(label.shape) - np.array(roi_size) // 2 - 1)
-    return tuple(center.tolist())
-
-
-class MSDTask01Dataset3D(torch.utils.data.Dataset):
-    def __init__(
-        self,
-        cases: Sequence[Tuple[Path, Path]],
-        roi_size: Optional[Sequence[int]],
-        label_mode: str,
-        num_classes: int,
-        pos_ratio: float,
-        percentiles: Tuple[float, float],
-        mode: str = "train",
-        seed: int = 42,
-    ):
-        self.cases = list(cases)
-        self.roi_size = tuple(roi_size) if roi_size is not None else None
-        self.label_mode = label_mode
-        self.num_classes = num_classes
-        self.pos_ratio = pos_ratio
-        self.percentiles = percentiles
-        self.mode = mode
-        self.rng = np.random.default_rng(seed)
-
-    def __len__(self):
-        return len(self.cases)
-
-    def __getitem__(self, idx: int):
-        image_path, label_path = self.cases[idx]
-        image = nib.load(str(image_path)).get_fdata().astype(np.float32)
-        label = nib.load(str(label_path)).get_fdata().astype(np.int64)
-
-        image = _to_channel_first(image)
-        image = normalize_modalities(image, self.percentiles)
-        label = label.astype(np.int64)
-
-        if self.label_mode == "binary":
-            label = (label > 0).astype(np.int64)
-            num_classes = 2
-        else:
-            num_classes = self.num_classes
-
-        if self.roi_size is not None:
-            center = sample_center(label, self.roi_size, self.pos_ratio, self.rng)
-            image = np.stack([crop_or_pad(ch, center, self.roi_size) for ch in image], axis=0)
-            label = crop_or_pad(label, center, self.roi_size)
-
-        label_one_hot = one_hot_encode(label, num_classes)
-        image_tensor = torch.from_numpy(image.astype(np.float32))
-        label_tensor = torch.from_numpy(label_one_hot.astype(np.float32))
-        return image_tensor, label_tensor
-
---- src/data/bias_correction.py ---
+--- src/eval.py ---
 import argparse
-import glob
-import os
-import shutil
+import json
 from pathlib import Path
-from typing import Iterable
+from typing import Dict, List, Tuple
 
-import SimpleITK as sitk
+import numpy as np
+import tensorflow as tf
 
-MODALITIES = ("flair", "t1", "t1ce", "t2")
-
-
-def correct_bias(in_path, out_path, image_type=sitk.sitkFloat64):
-    input_image = sitk.ReadImage(in_path, image_type)
-    output_image = sitk.N4BiasFieldCorrection(input_image, input_image > 0)
-    sitk.WriteImage(output_image, out_path)
-    return os.path.abspath(out_path)
-
-
-def get_image_path(subject_folder, name):
-    file_name = os.path.join(subject_folder, f"*{name}.nii.gz")
-    matches = glob.glob(file_name)
-    if not matches:
-        raise FileNotFoundError(f"Could not find modality {name} in {subject_folder}")
-    return matches[0]
-
-
-def normalize_image(in_path, out_path, bias_correction=True):
-    if bias_correction:
-        correct_bias(in_path, out_path)
-    else:
-        shutil.copy(in_path, out_path)
-
-
-def preprocess_brats_folder(
-    in_folder: Path,
-    out_folder: Path,
-    modalities: Iterable[str],
-    truth_name: str,
-    no_bias_correction_modalities: Iterable[str],
-):
-    for name in modalities:
-        image_image = get_image_path(in_folder, name)
-        case_id = os.path.basename(out_folder)
-        out_path = os.path.abspath(os.path.join(out_folder, f"{case_id}_{name}.nii.gz"))
-        perform_bias_correction = name not in no_bias_correction_modalities
-        normalize_image(image_image, out_path, bias_correction=perform_bias_correction)
-
-    truth_image = get_image_path(in_folder, truth_name)
-    out_path = os.path.abspath(os.path.join(out_folder, f"{case_id}_truth.nii.gz"))
-    shutil.copy(truth_image, out_path)
-
-
-def preprocess_brats_data(
-    brats_folder: Path,
-    out_folder: Path,
-    overwrite: bool = False,
-    no_bias_correction_modalities: Iterable[str] = ("flair",),
-    modalities: Iterable[str] = MODALITIES,
-):
-    for subject_folder in glob.glob(os.path.join(brats_folder, "*", "*")):
-        if os.path.isdir(subject_folder):
-            subject = os.path.basename(subject_folder)
-            new_subject_folder = os.path.join(out_folder, os.path.basename(os.path.dirname(subject_folder)), subject)
-            if not os.path.exists(new_subject_folder) or overwrite:
-                if not os.path.exists(new_subject_folder):
-                    os.makedirs(new_subject_folder)
-                preprocess_brats_folder(
-                    Path(subject_folder),
-                    Path(new_subject_folder),
-                    modalities=modalities,
-                    truth_name="seg",
-                    no_bias_correction_modalities=no_bias_correction_modalities,
-                )
+from src.data.dataset import build_dataloader
+from src.models.unet import build_unet
+from src.utils.config import apply_overrides, load_config, resolve_paths
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Run N4 bias-field correction on BraTS data")
-    parser.add_argument("--input-dir", required=True, help="Path to raw BraTS dataset")
-    parser.add_argument("--output-dir", required=True, help="Where to write corrected data")
-    parser.add_argument("--skip-modalities", nargs="*", default=["flair"], help="Modalities to skip bias correction")
-    parser.add_argument("--overwrite", action="store_true", help="Overwrite existing output")
+    parser = argparse.ArgumentParser(description="Evaluate U-Net on val/test splits")
+    parser.add_argument("--config", default="configs/config.yaml", help="Path to YAML config file")
+    parser.add_argument("--data-root", dest="data_root", help="Override dataset root directory")
+    parser.add_argument("--batch-size", type=int, help="Override batch size")
+    parser.add_argument("--weights", help="Path to model weights .h5 file")
+    parser.add_argument(
+        "--dataset-format",
+        choices=["brats", "msd_task01"],
+        default="brats",
+        help="Dataset format used to generate slices",
+    )
+    parser.add_argument(
+        "--label-mode",
+        choices=["binary", "multiclass"],
+        default="binary",
+        help="Label mode used to generate masks",
+    )
     return parser.parse_args()
+
+
+def build_model(cfg) -> tf.keras.Model:
+    image_size = cfg["data"]["image_size"]
+    input_channels = cfg["model"]["input_channels"]
+    class_names = cfg["data"]["class_names"]
+    model = build_unet(
+        input_size=(image_size, image_size, input_channels),
+        num_classes=len(class_names),
+        base_filters=cfg["model"].get("base_filters", 32),
+        learning_rate=cfg["training"]["learning_rate"],
+    )
+    return model
+
+
+def resolve_weights_path(cfg, weights_override: str = None) -> Path:
+    if weights_override:
+        return Path(weights_override).expanduser().resolve()
+    checkpoint_dir = Path(cfg["training"]["checkpoint_dir"])
+    checkpoint_name = cfg["training"]["checkpoint_filename"]
+    return (checkpoint_dir / checkpoint_name).expanduser().resolve()
+
+
+def accumulate_dice(
+    model: tf.keras.Model,
+    loader,
+    num_classes: int,
+) -> Tuple[List[float], float]:
+    intersections = np.zeros(num_classes, dtype=np.float64)
+    totals = np.zeros(num_classes, dtype=np.float64)
+    for images, masks in loader:
+        preds = model.predict(images, verbose=0)
+        pred_classes = np.argmax(preds, axis=-1)
+        true_classes = np.argmax(masks, axis=-1)
+        for class_idx in range(num_classes):
+            pred_mask = pred_classes == class_idx
+            true_mask = true_classes == class_idx
+            intersections[class_idx] += np.logical_and(pred_mask, true_mask).sum()
+            totals[class_idx] += pred_mask.sum() + true_mask.sum()
+
+    dice_per_class = []
+    for class_idx in range(num_classes):
+        if totals[class_idx] == 0:
+            dice = 1.0
+        else:
+            dice = (2.0 * intersections[class_idx]) / totals[class_idx]
+        dice_per_class.append(float(dice))
+    mean_dice = float(np.mean(dice_per_class)) if dice_per_class else 0.0
+    return dice_per_class, mean_dice
+
+
+def evaluate_split(model: tf.keras.Model, cfg, split_name: str) -> Dict[str, float]:
+    class_names = cfg["data"]["class_names"]
+    images_dir = cfg["data"][f"{split_name}_images"]
+    masks_dir = cfg["data"][f"{split_name}_masks"]
+    batch_size = cfg["training"]["batch_size"]
+    if not images_dir.exists() or not masks_dir.exists():
+        raise FileNotFoundError(f"Missing {split_name} data at {images_dir} or {masks_dir}")
+    loader = build_dataloader(
+        images_dir,
+        masks_dir,
+        class_names,
+        batch_size=batch_size,
+        image_size=cfg["data"]["image_size"],
+        augmentation=None,
+        shuffle=False,
+    )
+    if len(loader) == 0:
+        raise ValueError(f"No samples found for {split_name} split")
+    dice_per_class, mean_dice = accumulate_dice(model, loader, len(class_names))
+    return {
+        "dice_per_class": dict(zip(class_names, dice_per_class)),
+        "mean_dice": mean_dice,
+    }
 
 
 def main():
     args = parse_args()
-    input_dir = Path(args.input_dir).expanduser().resolve()
-    output_dir = Path(args.output_dir).expanduser().resolve()
-    output_dir.mkdir(parents=True, exist_ok=True)
+    cfg = load_config(args.config)
+    cfg = apply_overrides(cfg, args)
+    if args.batch_size:
+        cfg["training"]["batch_size"] = args.batch_size
+    cfg = resolve_paths(cfg)
 
-    preprocess_brats_data(
-        brats_folder=input_dir,
-        out_folder=output_dir,
-        overwrite=args.overwrite,
-        no_bias_correction_modalities=args.skip_modalities,
+    weights_path = resolve_weights_path(cfg, args.weights)
+    if not weights_path.exists():
+        raise FileNotFoundError(f"Model weights not found at {weights_path}")
+
+    model = build_model(cfg)
+    model.load_weights(weights_path)
+
+    metrics = {
+        "dataset_format": args.dataset_format,
+        "label_mode": args.label_mode,
+        "val": evaluate_split(model, cfg, "val"),
+        "test": evaluate_split(model, cfg, "test"),
+    }
+
+    output_dir = Path("outputs").resolve()
+    output_dir.mkdir(parents=True, exist_ok=True)
+    metrics_path = output_dir / "metrics.json"
+    with metrics_path.open("w", encoding="utf-8") as f:
+        json.dump(metrics, f, indent=2)
+    print(f"Wrote metrics to {metrics_path}")
+
+
+if __name__ == "__main__":
+    main()
+
+--- src/eval_3d.py ---
+import argparse
+import json
+import logging
+import subprocess
+import time
+from pathlib import Path
+from typing import Dict, List, Tuple
+
+import numpy as np
+import torch
+import yaml
+from monai.inferers import sliding_window_inference
+from monai.networks.nets import UNet
+
+from src.data.msd_task01_3d import MSDTask01Dataset3D, build_splits, list_msd_task01_cases
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Evaluate 3D U-Net on MSD Task01")
+    parser.add_argument("--config", default="configs/config_3d.yaml", help="Path to YAML config file")
+    parser.add_argument("--weights", required=True, help="Path to model weights .pt")
+    return parser.parse_args()
+
+
+def load_config(path: str) -> Dict:
+    with open(path, "r", encoding="utf-8") as f:
+        return yaml.safe_load(f)
+
+
+def build_model(cfg: Dict, num_classes: int) -> UNet:
+    model_cfg = cfg["model"]
+    return UNet(
+        spatial_dims=3,
+        in_channels=model_cfg["in_channels"],
+        out_channels=num_classes,
+        channels=model_cfg["channels"],
+        strides=model_cfg["strides"],
+        num_res_units=model_cfg["num_res_units"],
+        norm=model_cfg["norm"],
     )
+
+
+def get_git_hash() -> str:
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return result.stdout.strip()
+    except Exception:
+        return ""
+
+
+def _ensure_5d(tensor: torch.Tensor, name: str) -> torch.Tensor:
+    if tensor.ndim == 4:
+        return tensor.unsqueeze(0)
+    if tensor.ndim == 5:
+        return tensor
+    raise ValueError(f"{name} has unexpected shape {tuple(tensor.shape)}")
+
+
+def _compute_dice(pred: torch.Tensor, target: torch.Tensor, include_background: bool) -> torch.Tensor:
+    pred = _ensure_5d(pred, "pred")
+    target = _ensure_5d(target, "target")
+    if target.shape[1] != pred.shape[1]:
+        target = torch.argmax(target, dim=1, keepdim=True)
+        target = torch.nn.functional.one_hot(
+            target.long().squeeze(1), num_classes=pred.shape[1]
+        ).permute(0, 4, 1, 2, 3).float()
+    target = target.to(pred.device)
+    pred = pred.float()
+    target = target.float()
+    if not include_background and pred.shape[1] > 1:
+        pred = pred[:, 1:]
+        target = target[:, 1:]
+    intersection = (pred * target).sum(dim=(2, 3, 4))
+    denom = pred.sum(dim=(2, 3, 4)) + target.sum(dim=(2, 3, 4))
+    dice = torch.where(denom > 0, (2.0 * intersection) / denom, torch.ones_like(denom))
+    return dice.mean(dim=0)
+
+
+def _foreground_mean(dice_per_class: List[float]) -> float:
+    if not dice_per_class:
+        return 0.0
+    if len(dice_per_class) == 1:
+        return float(dice_per_class[0])
+    return float(np.mean(dice_per_class[1:]))
+
+
+def _accumulate_dice(
+    dice: torch.Tensor,
+    label: torch.Tensor,
+    num_classes: int,
+    ignore_empty_foreground: bool,
+) -> Tuple[np.ndarray, np.ndarray]:
+    label = _ensure_5d(label, "label")
+    target_sum = label.sum(dim=(2, 3, 4))
+    dice_sum = np.zeros(num_classes, dtype=np.float64)
+    dice_count = np.zeros(num_classes, dtype=np.float64)
+    for cls_idx in range(num_classes):
+        if cls_idx == 0:
+            valid = np.ones(target_sum.shape[0], dtype=bool)
+        else:
+            valid = target_sum[:, cls_idx].cpu().numpy() > 0
+            if not ignore_empty_foreground:
+                valid = np.ones_like(valid, dtype=bool)
+        dice_vals = dice[:, cls_idx].detach().cpu().numpy()
+        if valid.any():
+            dice_sum[cls_idx] += dice_vals[valid].sum()
+            dice_count[cls_idx] += valid.sum()
+    return dice_sum, dice_count
+
+
+def setup_logging():
+    logger = logging.getLogger("eval_3d")
+    logger.setLevel(logging.INFO)
+    if not logger.handlers:
+        handler = logging.StreamHandler()
+        formatter = logging.Formatter("%(asctime)s | %(levelname)s | %(message)s")
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+    return logger
+
+
+def evaluate_split(
+    model: torch.nn.Module,
+    dataset: torch.utils.data.Dataset,
+    device: torch.device,
+    roi_size: Tuple[int, int, int],
+    overlap: float,
+    sw_batch_size: int,
+    num_classes: int,
+    logger: logging.Logger,
+    split_name: str,
+    ignore_empty_foreground: bool,
+    log_interval: int = 1,
+) -> Tuple[List[float], float, int]:
+    model.eval()
+
+    dice_scores = []
+    dice_sum = np.zeros(num_classes, dtype=np.float64)
+    dice_count = np.zeros(num_classes, dtype=np.float64)
+    with torch.no_grad():
+        start_time = time.perf_counter()
+        for idx, (image, label) in enumerate(dataset, start=1):
+            image = image.unsqueeze(0).to(device)
+            label = label.unsqueeze(0).to(device)
+            logits = sliding_window_inference(
+                image, roi_size=roi_size, sw_batch_size=sw_batch_size, predictor=model, overlap=overlap
+            )
+            pred_labels = torch.argmax(logits, dim=1, keepdim=True)
+            pred = torch.nn.functional.one_hot(
+                pred_labels.squeeze(1), num_classes=num_classes
+            ).permute(0, 4, 1, 2, 3).float()
+            dice = _compute_dice(pred, label, include_background=True)
+            dice_scores.append(dice.cpu().numpy())
+            batch_sum, batch_count = _accumulate_dice(dice, label, num_classes, ignore_empty_foreground)
+            dice_sum += batch_sum
+            dice_count += batch_count
+            if log_interval and idx % log_interval == 0:
+                elapsed = time.perf_counter() - start_time
+                logger.info(
+                    "%s volume %s/%s | avg_time=%.2fs",
+                    split_name,
+                    idx,
+                    len(dataset),
+                    elapsed / idx,
+                )
+
+    if not dice_scores:
+        return [0.0] * num_classes, 0.0, 0
+    dice_scores = np.stack(dice_scores, axis=0)
+    dice_per_class = np.where(dice_count > 0, dice_sum / np.maximum(dice_count, 1.0), 0.0)
+    foreground_dice = _foreground_mean(dice_per_class.tolist())
+    return dice_per_class.tolist(), float(foreground_dice), len(dice_scores)
+
+
+def main():
+    args = parse_args()
+    cfg = load_config(args.config)
+    data_cfg = cfg["data"]
+    inference_cfg = cfg["inference"]
+
+    cases = list_msd_task01_cases(Path(data_cfg["root"]))
+    splits = build_splits(
+        cases,
+        train_ratio=data_cfg["train_ratio"],
+        val_ratio=data_cfg["val_ratio"],
+        seed=data_cfg.get("seed", 42),
+        list_files=data_cfg.get("list_files"),
+    )
+
+    num_classes = len(data_cfg.get("class_names", ["background", "tumor"]))
+    if data_cfg["label_mode"] == "binary":
+        num_classes = 2
+
+    percentiles = tuple(data_cfg.get("percentiles", [0.5, 99.5]))
+    val_dataset = MSDTask01Dataset3D(
+        splits["val"],
+        roi_size=None,
+        label_mode=data_cfg["label_mode"],
+        num_classes=num_classes,
+        pos_ratio=0.0,
+        percentiles=percentiles,
+        mode="val",
+        seed=data_cfg.get("seed", 42),
+    )
+    test_dataset = MSDTask01Dataset3D(
+        splits["test"],
+        roi_size=None,
+        label_mode=data_cfg["label_mode"],
+        num_classes=num_classes,
+        pos_ratio=0.0,
+        percentiles=percentiles,
+        mode="test",
+        seed=data_cfg.get("seed", 42),
+    )
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = build_model(cfg, num_classes).to(device)
+    model.load_state_dict(torch.load(args.weights, map_location=device))
+
+    roi_size = tuple(inference_cfg["roi_size"])
+    overlap = inference_cfg["overlap"]
+    sw_batch_size = inference_cfg["sw_batch_size"]
+
+    logger = setup_logging()
+    logger.info("Using device: %s", device)
+    logger.info("ROI size: %s | overlap: %s | sw_batch_size: %s", roi_size, overlap, sw_batch_size)
+    logger.info("Val volumes: %s | Test volumes: %s", len(val_dataset), len(test_dataset))
+    logger.info("ignore_empty_foreground: %s | pred_rule: argmax over softmax logits", ignore_empty_foreground)
+
+    ignore_empty_foreground = inference_cfg.get("ignore_empty_foreground", True)
+    val_dice, val_foreground, val_count = evaluate_split(
+        model,
+        val_dataset,
+        device,
+        roi_size,
+        overlap,
+        sw_batch_size,
+        num_classes,
+        logger,
+        "val",
+        ignore_empty_foreground,
+    )
+    test_dice, test_foreground, test_count = evaluate_split(
+        model,
+        test_dataset,
+        device,
+        roi_size,
+        overlap,
+        sw_batch_size,
+        num_classes,
+        logger,
+        "test",
+        ignore_empty_foreground,
+    )
+
+    class_names = data_cfg.get("class_names", [f"class_{i}" for i in range(num_classes)])
+    if len(class_names) != num_classes:
+        class_names = [f"class_{i}" for i in range(num_classes)]
+
+    metrics = {
+        "dataset_format": "msd_task01",
+        "label_mode": data_cfg["label_mode"],
+        "val": {
+            "dice_per_class": dict(zip(class_names, [float(x) for x in val_dice])),
+            "mean_dice": float(np.mean(val_dice)) if val_dice else 0.0,
+            "foreground_mean_dice": float(val_foreground),
+            "dice_background": float(val_dice[0]) if val_dice else 0.0,
+            "dice_tumor": float(val_dice[1]) if len(val_dice) > 1 else 0.0,
+            "number_of_volumes": val_count,
+        },
+        "test": {
+            "dice_per_class": dict(zip(class_names, [float(x) for x in test_dice])),
+            "mean_dice": float(np.mean(test_dice)) if test_dice else 0.0,
+            "foreground_mean_dice": float(test_foreground),
+            "dice_background": float(test_dice[0]) if test_dice else 0.0,
+            "dice_tumor": float(test_dice[1]) if len(test_dice) > 1 else 0.0,
+            "number_of_volumes": test_count,
+        },
+        "inference": {
+            "roi_size": list(roi_size),
+            "overlap": overlap,
+            "sw_batch_size": sw_batch_size,
+            "include_background": True,
+            "ignore_empty_foreground": bool(ignore_empty_foreground),
+            "pred_rule": "argmax over softmax logits",
+        },
+    }
+
+    git_hash = get_git_hash()
+    if git_hash:
+        metrics["git_commit"] = git_hash
+
+    output_dir = Path("outputs")
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / "metrics_3d.json"
+    with output_path.open("w", encoding="utf-8") as f:
+        json.dump(metrics, f, indent=2)
+    print(f"Wrote metrics to {output_path}")
 
 
 if __name__ == "__main__":
     main()
 
 --- src/models/__init__.py ---
+
 
 --- src/models/unet.py ---
 import tensorflow as tf
@@ -2450,113 +2437,8 @@ def build_unet(
     )
     return model
 
---- src/training/__init__.py ---
-
---- src/training/train.py ---
-import argparse
-import random
-from pathlib import Path
-import numpy as np
-import tensorflow as tf
-
-from src.data.augmentations import get_training_augmentation
-from src.data.dataset import build_dataloader
-from src.models.unet import build_unet
-from src.utils.config import apply_overrides, load_config, resolve_paths
-
-
-def set_random_seeds(seed: int):
-    random.seed(seed)
-    np.random.seed(seed)
-    tf.random.set_seed(seed)
-
-
-def create_callbacks(cfg):
-    log_dir = cfg["training"]["log_dir"]
-    checkpoint_dir = cfg["training"]["checkpoint_dir"]
-    checkpoint_path = Path(checkpoint_dir) / cfg["training"]["checkpoint_filename"]
-
-    tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir, histogram_freq=1)
-    early_stopping = tf.keras.callbacks.EarlyStopping(
-        patience=cfg["training"]["early_stopping_patience"], verbose=1, restore_best_weights=True
-    )
-    model_checkpoint = tf.keras.callbacks.ModelCheckpoint(
-        checkpoint_path, verbose=1, save_best_only=True, save_weights_only=True
-    )
-    return [tensorboard_callback, early_stopping, model_checkpoint]
-
-
-def parse_args():
-    parser = argparse.ArgumentParser(description="Train U-Net for brain tumor segmentation")
-    parser.add_argument("--config", default="configs/config.yaml", help="Path to YAML config file")
-    parser.add_argument("--data-root", dest="data_root", help="Override dataset root directory")
-    parser.add_argument("--epochs", type=int, help="Override number of epochs")
-    parser.add_argument("--batch-size", type=int, help="Override batch size")
-    parser.add_argument("--learning-rate", type=float, dest="learning_rate", help="Override learning rate")
-    return parser.parse_args()
-
-
-def main():
-    args = parse_args()
-    cfg = load_config(args.config)
-    cfg = apply_overrides(cfg, args)
-    cfg = resolve_paths(cfg)
-
-    set_random_seeds(cfg["training"].get("seed", 42))
-
-    image_size = cfg["data"]["image_size"]
-    input_channels = cfg["model"]["input_channels"]
-    class_names = cfg["data"]["class_names"]
-
-    train_aug = get_training_augmentation() if cfg.get("augmentation", {}).get("enable", False) else None
-
-    train_loader = build_dataloader(
-        cfg["data"]["train_images"],
-        cfg["data"]["train_masks"],
-        class_names,
-        batch_size=cfg["training"]["batch_size"],
-        image_size=image_size,
-        augmentation=train_aug,
-        shuffle=True,
-    )
-    val_loader = build_dataloader(
-        cfg["data"]["val_images"],
-        cfg["data"]["val_masks"],
-        class_names,
-        batch_size=cfg["training"]["batch_size"],
-        image_size=image_size,
-        augmentation=None,
-        shuffle=False,
-    )
-
-    model = build_unet(
-        input_size=(image_size, image_size, input_channels),
-        num_classes=len(class_names),
-        base_filters=cfg["model"].get("base_filters", 32),
-        learning_rate=cfg["training"]["learning_rate"],
-    )
-
-    steps_per_epoch = cfg["training"].get("steps_per_epoch") or len(train_loader)
-    validation_steps = cfg["training"].get("validation_steps") or len(val_loader)
-
-    callbacks = create_callbacks(cfg)
-
-    model.fit(
-        train_loader,
-        validation_data=val_loader,
-        epochs=cfg["training"]["epochs"],
-        steps_per_epoch=steps_per_epoch,
-        validation_steps=validation_steps,
-        callbacks=callbacks,
-        use_multiprocessing=cfg["training"].get("use_multiprocessing", False),
-        workers=cfg["training"].get("workers", 1),
-    )
-
-
-if __name__ == "__main__":
-    main()
-
 --- src/service/__init__.py ---
+
 
 --- src/service/api.py ---
 import base64
@@ -2698,20 +2580,945 @@ def vertex_predict(payload: Dict[str, Any] = Body(...)):
 
     return JSONResponse({"predictions": predictions})
 
---- smoke_dataset/train_frames/train/slice_000.png ---
-(binary file, contents omitted)
+--- src/train_3d.py ---
+import argparse
+import csv
+import json
+import random
+import logging
+import os
+import time
+from datetime import datetime
+from pathlib import Path
+from typing import Dict, List, Tuple
 
---- smoke_dataset/train_masks/train/slice_000.png ---
-(binary file, contents omitted)
+import numpy as np
+import torch
+import yaml
+from monai.losses import DiceCELoss
+from monai.networks.nets import UNet
+from PIL import Image
+from torch.utils.tensorboard import SummaryWriter
 
---- smoke_dataset/val_frames/val/slice_001.png ---
-(binary file, contents omitted)
+from src.data.msd_task01_3d import MSDTask01Dataset3D, build_splits, list_msd_task01_cases
 
---- smoke_dataset/val_masks/val/slice_001.png ---
-(binary file, contents omitted)
 
---- smoke_dataset/test_frames/test/slice_002.png ---
-(binary file, contents omitted)
+def setup_logging(log_path: Path):
+    logger = logging.getLogger("train_3d")
+    logger.setLevel(logging.INFO)
+    formatter = logging.Formatter("%(asctime)s | %(levelname)s | %(message)s")
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(formatter)
+    file_handler = logging.FileHandler(log_path)
+    file_handler.setFormatter(formatter)
+    if not logger.handlers:
+        logger.addHandler(stream_handler)
+        logger.addHandler(file_handler)
+    return logger
 
---- smoke_dataset/test_masks/test/slice_002.png ---
-(binary file, contents omitted)
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Train 3D U-Net on MSD Task01")
+    parser.add_argument("--config", default="configs/config_3d.yaml", help="Path to YAML config file")
+    parser.add_argument("--max-epochs", type=int, help="Override max epochs")
+    parser.add_argument("--limit-train-batches", type=int, help="Limit train batches per epoch")
+    parser.add_argument("--limit-val-batches", type=int, help="Limit val batches per epoch")
+    parser.add_argument("--deterministic", action="store_true", help="Enable deterministic training")
+    return parser.parse_args()
+
+
+def set_seeds(seed: int, deterministic: bool):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+    if deterministic:
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+
+
+def load_config(path: str) -> Dict:
+    with open(path, "r", encoding="utf-8") as f:
+        return yaml.safe_load(f)
+
+
+def resolve_config(cfg: Dict, args) -> Dict:
+    cfg = json.loads(json.dumps(cfg))
+    if args.max_epochs is not None:
+        cfg["training"]["max_epochs"] = args.max_epochs
+    if args.limit_train_batches is not None:
+        cfg["training"]["limit_train_batches"] = args.limit_train_batches
+    if args.limit_val_batches is not None:
+        cfg["training"]["limit_val_batches"] = args.limit_val_batches
+    if args.deterministic:
+        cfg["training"]["deterministic"] = True
+    return cfg
+
+
+def build_model(cfg: Dict, num_classes: int) -> UNet:
+    model_cfg = cfg["model"]
+    return UNet(
+        spatial_dims=3,
+        in_channels=model_cfg["in_channels"],
+        out_channels=num_classes,
+        channels=model_cfg["channels"],
+        strides=model_cfg["strides"],
+        num_res_units=model_cfg["num_res_units"],
+        norm=model_cfg["norm"],
+    )
+
+
+def build_dataloaders(cfg: Dict) -> Tuple[torch.utils.data.DataLoader, torch.utils.data.DataLoader]:
+    data_cfg = cfg["data"]
+    cases = list_msd_task01_cases(Path(data_cfg["root"]))
+    splits = build_splits(
+        cases,
+        train_ratio=data_cfg["train_ratio"],
+        val_ratio=data_cfg["val_ratio"],
+        seed=data_cfg.get("seed", 42),
+        list_files=data_cfg.get("list_files"),
+    )
+    num_classes = len(data_cfg.get("class_names", ["background", "tumor"]))
+    if data_cfg["label_mode"] == "binary":
+        num_classes = 2
+    roi_size = data_cfg.get("roi_size")
+    percentiles = tuple(data_cfg.get("percentiles", [0.5, 99.5]))
+
+    train_dataset = MSDTask01Dataset3D(
+        splits["train"],
+        roi_size=roi_size,
+        label_mode=data_cfg["label_mode"],
+        num_classes=num_classes,
+        pos_ratio=data_cfg.get("pos_ratio", 0.5),
+        percentiles=percentiles,
+        mode="train",
+        seed=data_cfg.get("seed", 42),
+        max_pos_attempts=data_cfg.get("max_pos_attempts", 10),
+    )
+    val_dataset = MSDTask01Dataset3D(
+        splits["val"],
+        roi_size=roi_size,
+        label_mode=data_cfg["label_mode"],
+        num_classes=num_classes,
+        pos_ratio=0.0,
+        percentiles=percentiles,
+        mode="val",
+        seed=data_cfg.get("seed", 42),
+    )
+
+    num_workers = cfg["training"]["num_workers"]
+    pin_memory = torch.cuda.is_available()
+    loader_kwargs = {
+        "num_workers": num_workers,
+        "pin_memory": pin_memory,
+        "persistent_workers": num_workers > 0,
+    }
+    if num_workers > 0:
+        loader_kwargs["prefetch_factor"] = 2
+    train_loader = torch.utils.data.DataLoader(
+        train_dataset,
+        batch_size=cfg["training"]["batch_size"],
+        shuffle=True,
+        drop_last=True,
+        **loader_kwargs,
+    )
+    val_loader = torch.utils.data.DataLoader(
+        val_dataset,
+        batch_size=cfg["training"]["batch_size"],
+        shuffle=False,
+        **loader_kwargs,
+    )
+    return train_loader, val_loader
+
+
+def _ensure_5d(tensor: torch.Tensor, name: str) -> torch.Tensor:
+    if tensor.ndim == 4:
+        return tensor.unsqueeze(0)
+    if tensor.ndim == 5:
+        return tensor
+    if tensor.ndim == 6 and tensor.shape[1] == 1:
+        return tensor.squeeze(1)
+    raise ValueError(f"{name} has unexpected shape {tuple(tensor.shape)}")
+
+
+def compute_dice(pred: torch.Tensor, target: torch.Tensor, include_background: bool) -> torch.Tensor:
+    pred = _ensure_5d(pred, "pred")
+    target = _ensure_5d(target, "target")
+    if pred.shape[0] != target.shape[0]:
+        raise ValueError(f"Batch mismatch: pred {pred.shape} vs target {target.shape}")
+    if target.shape[1] != pred.shape[1]:
+        target = torch.argmax(target, dim=1, keepdim=True)
+        target = torch.nn.functional.one_hot(
+            target.long().squeeze(1), num_classes=pred.shape[1]
+        ).permute(0, 4, 1, 2, 3).float()
+    target = target.to(pred.device)
+    pred = pred.float()
+    target = target.float()
+    if not include_background and pred.shape[1] > 1:
+        pred = pred[:, 1:]
+        target = target[:, 1:]
+    intersection = (pred * target).sum(dim=(2, 3, 4))
+    denom = pred.sum(dim=(2, 3, 4)) + target.sum(dim=(2, 3, 4))
+    dice = torch.where(denom > 0, (2.0 * intersection) / denom, torch.ones_like(denom))
+    return dice
+
+
+def _validate_labels(labels: torch.Tensor, num_classes: int) -> None:
+    if labels.ndim != 5:
+        raise ValueError(f"Expected labels shape (B,C,D,H,W), got {tuple(labels.shape)}")
+    if labels.shape[1] != num_classes:
+        raise ValueError(
+            f"Label channel mismatch: expected C={num_classes}, got C={labels.shape[1]}"
+        )
+    if labels.min().item() < -1e-3 or labels.max().item() > 1 + 1e-3:
+        raise ValueError("Labels must be in [0,1] for one-hot encoding")
+    channel_sum = labels.sum(dim=1)
+    if not torch.allclose(channel_sum, torch.ones_like(channel_sum), atol=1e-3):
+        raise ValueError("Labels must be one-hot encoded (sum across channels = 1).")
+
+
+def _pred_to_onehot(logits: torch.Tensor, num_classes: int) -> torch.Tensor:
+    pred_labels = torch.argmax(logits, dim=1, keepdim=True)
+    return torch.nn.functional.one_hot(
+        pred_labels.squeeze(1), num_classes=num_classes
+    ).permute(0, 4, 1, 2, 3).float()
+
+
+def _foreground_mask(labels: torch.Tensor) -> torch.Tensor:
+    if labels.shape[1] == 1:
+        return labels[:, 0] > 0.5
+    return labels[:, 1:].sum(dim=1) > 0
+
+
+def _log_sanity_stats(
+    logger: logging.Logger,
+    preds: torch.Tensor,
+    labels: torch.Tensor,
+    prefix: str,
+) -> None:
+    foreground_gt = _foreground_mask(labels)
+    foreground_pred = _foreground_mask(preds)
+    tumor_voxel_frac = foreground_gt.float().mean().item()
+    pred_tumor_frac = foreground_pred.float().mean().item()
+    tp = (foreground_pred & foreground_gt).sum().item()
+    fp = (foreground_pred & ~foreground_gt).sum().item()
+    fn = (~foreground_pred & foreground_gt).sum().item()
+    logger.info(
+        "%s tumor_voxel_frac=%.6f pred_tumor_voxel_frac=%.6f tp=%s fp=%s fn=%s",
+        prefix,
+        tumor_voxel_frac,
+        pred_tumor_frac,
+        int(tp),
+        int(fp),
+        int(fn),
+    )
+
+
+def _normalize_slice(slice_array: np.ndarray) -> np.ndarray:
+    vmin = float(slice_array.min())
+    vmax = float(slice_array.max())
+    if vmax <= vmin:
+        return np.zeros_like(slice_array, dtype=np.uint8)
+    scaled = (slice_array - vmin) / (vmax - vmin)
+    return (scaled * 255.0).astype(np.uint8)
+
+
+def _select_slice_index(label_one_hot: np.ndarray) -> int:
+    if label_one_hot.shape[0] > 1:
+        foreground = label_one_hot[1:].sum(axis=0)
+    else:
+        foreground = label_one_hot[0]
+    areas = foreground.sum(axis=(1, 2))
+    if areas.max() == 0:
+        return label_one_hot.shape[1] // 2
+    return int(np.argmax(areas))
+
+
+def _make_overlay(input_slice: np.ndarray, gt_mask: np.ndarray, pred_mask: np.ndarray) -> np.ndarray:
+    base = np.stack([input_slice] * 3, axis=-1).astype(np.float32)
+    overlay = base.copy()
+    overlay[gt_mask > 0, 1] = 255
+    overlay[pred_mask > 0, 0] = 255
+    return overlay.astype(np.uint8)
+
+
+def _save_vis_images(vis_dir: Path, case_idx: int, input_slice, gt_slice, pred_slice, overlay):
+    Image.fromarray(input_slice).save(vis_dir / f"case_{case_idx}_input.png")
+    Image.fromarray(gt_slice).save(vis_dir / f"case_{case_idx}_gt.png")
+    Image.fromarray(pred_slice).save(vis_dir / f"case_{case_idx}_pred.png")
+    Image.fromarray(overlay).save(vis_dir / f"case_{case_idx}_overlay.png")
+
+
+def _log_visuals(
+    model: torch.nn.Module,
+    val_loader: torch.utils.data.DataLoader,
+    device: torch.device,
+    writer: SummaryWriter,
+    run_dir: Path,
+    epoch: int,
+    num_classes: int,
+    max_cases: int,
+):
+    vis_dir = run_dir / "vis" / f"epoch_{epoch:02d}"
+    vis_dir.mkdir(parents=True, exist_ok=True)
+    overlays = []
+    model.eval()
+    case_idx = 0
+    with torch.no_grad():
+        for images, labels in val_loader:
+            for b in range(images.shape[0]):
+                if case_idx >= max_cases:
+                    break
+                image = images[b : b + 1].to(device)
+                label = labels[b].cpu().numpy()
+                logits = model(image)
+                pred = torch.softmax(logits, dim=1).argmax(dim=1).cpu().numpy()[0]
+
+                slice_idx = _select_slice_index(label)
+                input_slice = images[b, 0, slice_idx].cpu().numpy()
+                input_slice = _normalize_slice(input_slice)
+
+                gt_slice = np.argmax(label[:, slice_idx], axis=0).astype(np.uint8)
+                pred_slice = pred[slice_idx].astype(np.uint8)
+
+                if num_classes > 1:
+                    scale = 255 // max(1, num_classes - 1)
+                else:
+                    scale = 255
+                pred_viz = (pred_slice * scale).astype(np.uint8)
+                gt_viz = (gt_slice * scale).astype(np.uint8)
+
+                overlay = _make_overlay(input_slice, gt_slice, pred_slice)
+                _save_vis_images(vis_dir, case_idx, input_slice, gt_viz, pred_viz, overlay)
+                overlays.append(overlay)
+                case_idx += 1
+            if case_idx >= max_cases:
+                break
+
+    if overlays:
+        grid = np.concatenate(overlays, axis=1)
+        writer.add_image("vis/overlay", grid, epoch, dataformats="HWC")
+
+
+def main():
+    args = parse_args()
+    cfg = resolve_config(load_config(args.config), args)
+    run_dir = Path(cfg["training"]["output_dir"]) / datetime.now().strftime("%Y%m%d_%H%M%S")
+    run_dir.mkdir(parents=True, exist_ok=True)
+    logger = setup_logging(run_dir / "train.log")
+
+    with (run_dir / "train_config_resolved.yaml").open("w", encoding="utf-8") as f:
+        yaml.safe_dump(cfg, f, sort_keys=False)
+
+    set_seeds(cfg["training"].get("seed", 42), cfg["training"].get("deterministic", False))
+
+    data_cfg = cfg["data"]
+    num_classes = len(data_cfg.get("class_names", ["background", "tumor"]))
+    if data_cfg["label_mode"] == "binary":
+        num_classes = 2
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = build_model(cfg, num_classes).to(device)
+
+    loss_fn = DiceCELoss(
+        to_onehot_y=False,
+        softmax=True,
+        include_background=True,
+    )
+    optimizer = torch.optim.Adam(model.parameters(), lr=cfg["training"]["learning_rate"])
+    scaler = torch.amp.GradScaler("cuda", enabled=torch.cuda.is_available())
+
+    train_loader, val_loader = build_dataloaders(cfg)
+    log_interval = cfg["training"].get("log_interval", 0)
+    vis_interval = cfg["training"].get("vis_interval", 5)
+    max_vis_cases = cfg["training"].get("max_vis_cases", 3)
+    ignore_empty_foreground = cfg["training"].get("ignore_empty_foreground", True)
+    log_sanity_steps = int(cfg["training"].get("log_sanity_steps", 50))
+    logger.info("Train batches per epoch: %s | Val batches: %s", len(train_loader), len(val_loader))
+    logger.info("Using device: %s", device)
+    logger.info("ROI size: %s", data_cfg.get("roi_size"))
+    logger.info("num_workers: %s", cfg["training"]["num_workers"])
+    logger.info(
+        "limit_train_batches: %s | limit_val_batches: %s",
+        cfg["training"].get("limit_train_batches"),
+        cfg["training"].get("limit_val_batches"),
+    )
+    logger.info("ignore_empty_foreground: %s | pred_rule: argmax over softmax logits", ignore_empty_foreground)
+    if torch.cuda.is_available():
+        logger.info("GPU name: %s", torch.cuda.get_device_name(0))
+        logger.info("CUDA capability: %s", torch.cuda.get_device_capability(0))
+    logger.info("AMP enabled: %s", torch.cuda.is_available())
+    if "OMP_NUM_THREADS" not in os.environ or "MKL_NUM_THREADS" not in os.environ:
+        logger.warning(
+            "For best throughput set: OMP_NUM_THREADS=1 and MKL_NUM_THREADS=1"
+        )
+
+    best_fg_dice = -1.0
+    best_val_loss = float("inf")
+    best_epoch = 0
+    metrics_path = run_dir / "metrics.csv"
+    tb_writer = SummaryWriter(log_dir=run_dir)
+    metrics_json_path = run_dir / "metrics_per_epoch.json"
+    metrics_history = []
+    with metrics_path.open("w", newline="", encoding="utf-8") as f:
+        csv_writer = csv.writer(f)
+        csv_writer.writerow(
+            [
+                "epoch",
+                "train_loss",
+                "val_loss",
+                "val_mean_dice",
+                "val_foreground_dice",
+                "val_dice_background",
+                "val_dice_tumor",
+                "lr",
+            ]
+        )
+
+        global_step = 0
+        for epoch in range(cfg["training"]["max_epochs"]):
+            logger.info("Epoch %s/%s", epoch + 1, cfg["training"]["max_epochs"])
+            if torch.cuda.is_available():
+                torch.cuda.reset_peak_memory_stats()
+            model.train()
+            train_loss = 0.0
+            batch_count = 0
+            step_time = 0.0
+            step_window = 0
+            pos_batches = 0
+            total_batches = 0
+            logged_device = False
+            for batch_idx, (images, labels) in enumerate(train_loader):
+                if cfg["training"].get("limit_train_batches") and batch_idx >= cfg["training"]["limit_train_batches"]:
+                    break
+                start = time.perf_counter()
+                images = images.to(device, non_blocking=True)
+                labels = labels.to(device, non_blocking=True)
+                if not logged_device:
+                    logger.info("Model device: %s | Batch device: %s", next(model.parameters()).device, images.device)
+                    logged_device = True
+                _validate_labels(labels, num_classes)
+                optimizer.zero_grad(set_to_none=True)
+                with torch.autocast(device_type=device.type, enabled=torch.cuda.is_available()):
+                    logits = model(images)
+                    loss = loss_fn(logits, labels)
+                scaler.scale(loss).backward()
+                scaler.step(optimizer)
+                scaler.update()
+                train_loss += loss.item()
+                batch_count += 1
+                total_batches += 1
+                preds = _pred_to_onehot(logits, num_classes)
+                if _foreground_mask(labels).any():
+                    pos_batches += 1
+                step_time += time.perf_counter() - start
+                step_window += 1
+                if global_step < log_sanity_steps or batch_idx == 0:
+                    _log_sanity_stats(logger, preds, labels, "train")
+                if log_interval and batch_idx % log_interval == 0:
+                    avg_step = step_time / max(1, step_window)
+                    logger.info(
+                        "  train step %s/%s loss=%.4f avg_step=%.3fs",
+                        batch_idx + 1,
+                        len(train_loader),
+                        loss.item(),
+                        avg_step,
+                    )
+                    step_time = 0.0
+                    step_window = 0
+                global_step += 1
+
+            train_loss /= max(1, batch_count)
+            observed_pos_ratio = pos_batches / max(1, total_batches)
+            logger.info("Observed train pos_ratio (patches w/ tumor): %.3f", observed_pos_ratio)
+            tb_writer.add_scalar("data/pos_ratio", observed_pos_ratio, epoch + 1)
+
+            model.eval()
+            dice_scores: List[float] = []
+            dice_per_class: List[np.ndarray] = []
+            dice_sum = np.zeros(num_classes, dtype=np.float64)
+            dice_count = np.zeros(num_classes, dtype=np.float64)
+            val_loss = 0.0
+            val_batches = 0
+            debug_shapes = cfg["training"].get("debug_shapes", False)
+            with torch.no_grad():
+                for val_idx, (images, labels) in enumerate(val_loader):
+                    if cfg["training"].get("limit_val_batches") and val_idx >= cfg["training"]["limit_val_batches"]:
+                        break
+                    images = images.to(device)
+                    labels = labels.to(device)
+                    _validate_labels(labels, num_classes)
+                    logits = model(images)
+                    val_loss += loss_fn(logits, labels).item()
+                    val_batches += 1
+                    preds = _pred_to_onehot(logits, num_classes)
+                    if debug_shapes and val_idx == 0:
+                        logger.info(
+                            "val shapes | images=%s labels=%s logits=%s preds=%s",
+                            tuple(images.shape),
+                            tuple(labels.shape),
+                            tuple(logits.shape),
+                            tuple(preds.shape),
+                        )
+                    dice = compute_dice(preds, labels, include_background=True)
+                    dice_scores.append(dice.mean().item())
+                    dice_per_class.append(dice.mean(dim=0).cpu().numpy())
+                    target_sum = labels.sum(dim=(2, 3, 4))
+                    for cls_idx in range(num_classes):
+                        if cls_idx == 0:
+                            valid = np.ones(target_sum.shape[0], dtype=bool)
+                        else:
+                            valid = target_sum[:, cls_idx].cpu().numpy() > 0
+                            if not ignore_empty_foreground:
+                                valid = np.ones_like(valid, dtype=bool)
+                        dice_vals = dice[:, cls_idx].detach().cpu().numpy()
+                        if valid.any():
+                            dice_sum[cls_idx] += dice_vals[valid].sum()
+                            dice_count[cls_idx] += valid.sum()
+                    if log_interval and val_idx % log_interval == 0:
+                        logger.info(
+                            "  val step %s/%s mean_dice=%.4f",
+                            val_idx + 1,
+                            len(val_loader),
+                            dice.mean().item(),
+                        )
+
+            val_mean_dice = float(np.mean(dice_scores)) if dice_scores else 0.0
+            val_loss = val_loss / max(1, val_batches)
+            lr = optimizer.param_groups[0]["lr"]
+            val_dice_per_class = np.where(
+                dice_count > 0, dice_sum / np.maximum(dice_count, 1.0), 0.0
+            )
+            val_dice_background = float(val_dice_per_class[0]) if num_classes > 0 else 0.0
+            val_dice_tumor = float(val_dice_per_class[1]) if num_classes > 1 else 0.0
+            if num_classes > 1:
+                val_foreground_dice = float(np.mean(val_dice_per_class[1:]))
+            else:
+                val_foreground_dice = float(val_dice_per_class[0]) if num_classes > 0 else 0.0
+            csv_writer.writerow(
+                [
+                    epoch + 1,
+                    f"{train_loss:.6f}",
+                    f"{val_loss:.6f}",
+                    f"{val_mean_dice:.6f}",
+                    f"{val_foreground_dice:.6f}",
+                    f"{val_dice_background:.6f}",
+                    f"{val_dice_tumor:.6f}",
+                    f"{lr:.8f}",
+                ]
+            )
+            f.flush()
+
+            tb_writer.add_scalar("loss/train", train_loss, epoch + 1)
+            tb_writer.add_scalar("loss/val", val_loss, epoch + 1)
+            tb_writer.add_scalar("dice_mean/val", val_mean_dice, epoch + 1)
+            tb_writer.add_scalar("dice_foreground/val", val_foreground_dice, epoch + 1)
+            if dice_per_class:
+                for idx in range(num_classes):
+                    tb_writer.add_scalar(
+                        f"dice/val_class_{idx}",
+                        float(val_dice_per_class[idx]) if idx < len(val_dice_per_class) else 0.0,
+                        epoch + 1,
+                    )
+            if num_classes > 1:
+                tb_writer.add_scalar("dice/val_background", val_dice_background, epoch + 1)
+                tb_writer.add_scalar("dice/val_tumor", val_dice_tumor, epoch + 1)
+            tb_writer.add_scalar("lr", lr, epoch + 1)
+            if torch.cuda.is_available():
+                gpu_mem = torch.cuda.max_memory_allocated() / (1024**2)
+                tb_writer.add_scalar("gpu_mem_max_mb", gpu_mem, epoch + 1)
+
+            if torch.cuda.is_available():
+                gpu_mem = torch.cuda.max_memory_allocated() / (1024**2)
+            else:
+                gpu_mem = 0.0
+            logger.info(
+                "Epoch %s summary | train_loss=%.4f val_loss=%.4f val_mean_dice=%.4f val_foreground_dice=%.4f val_dice_background=%.4f val_dice_tumor=%.4f lr=%.6f gpu_mem_max_mb=%.1f",
+                epoch + 1,
+                train_loss,
+                val_loss,
+                val_mean_dice,
+                val_foreground_dice,
+                val_dice_background,
+                val_dice_tumor,
+                lr,
+                gpu_mem,
+            )
+
+            metrics_history.append(
+                {
+                    "epoch": epoch + 1,
+                    "train_loss": float(train_loss),
+                    "val_loss": float(val_loss),
+                    "val_mean_dice": float(val_mean_dice),
+                    "val_foreground_dice": float(val_foreground_dice),
+                    "val_dice_per_class": val_dice_per_class.tolist(),
+                    "val_dice_background": float(val_dice_background),
+                    "val_dice_tumor": float(val_dice_tumor),
+                    "lr": float(lr),
+                    "ignore_empty_foreground": bool(ignore_empty_foreground),
+                    "include_background": True,
+                    "pred_rule": "argmax over softmax logits",
+                    "class_names": data_cfg.get("class_names", []),
+                }
+            )
+            with metrics_json_path.open("w", encoding="utf-8") as json_f:
+                json.dump(metrics_history, json_f, indent=2)
+
+            improved = False
+            if val_foreground_dice > best_fg_dice:
+                improved = True
+            elif abs(val_foreground_dice - best_fg_dice) < 1e-6 and val_loss < best_val_loss:
+                improved = True
+            if improved:
+                best_fg_dice = val_foreground_dice
+                best_val_loss = val_loss
+                best_epoch = epoch + 1
+                torch.save(model.state_dict(), run_dir / "best.pt")
+                logger.info(
+                    "New best model | val_tumor_dice=%.4f val_foreground_dice=%.4f epoch=%s",
+                    val_dice_tumor,
+                    val_foreground_dice,
+                    best_epoch,
+                )
+
+            if (epoch + 1) % vis_interval == 0:
+                _log_visuals(
+                    model,
+                    val_loader,
+                    device,
+                    tb_writer,
+                    run_dir,
+                    epoch + 1,
+                    num_classes,
+                    max_vis_cases,
+                )
+
+    logger.info("Best val tumor/foreground Dice: %.4f at epoch %s", best_fg_dice, best_epoch)
+    logger.info("Run directory: %s", run_dir)
+    tb_writer.close()
+
+
+if __name__ == "__main__":
+    main()
+
+--- src/training/__init__.py ---
+
+
+--- src/training/train.py ---
+import argparse
+import random
+from pathlib import Path
+import numpy as np
+import tensorflow as tf
+
+from src.data.augmentations import get_training_augmentation
+from src.data.dataset import build_dataloader
+from src.models.unet import build_unet
+from src.utils.config import apply_overrides, load_config, resolve_paths
+
+
+def set_random_seeds(seed: int):
+    random.seed(seed)
+    np.random.seed(seed)
+    tf.random.set_seed(seed)
+
+
+def create_callbacks(cfg):
+    log_dir = cfg["training"]["log_dir"]
+    checkpoint_dir = cfg["training"]["checkpoint_dir"]
+    checkpoint_path = Path(checkpoint_dir) / cfg["training"]["checkpoint_filename"]
+
+    tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir, histogram_freq=1)
+    early_stopping = tf.keras.callbacks.EarlyStopping(
+        patience=cfg["training"]["early_stopping_patience"], verbose=1, restore_best_weights=True
+    )
+    model_checkpoint = tf.keras.callbacks.ModelCheckpoint(
+        checkpoint_path, verbose=1, save_best_only=True, save_weights_only=True
+    )
+    return [tensorboard_callback, early_stopping, model_checkpoint]
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Train U-Net for brain tumor segmentation")
+    parser.add_argument("--config", default="configs/config.yaml", help="Path to YAML config file")
+    parser.add_argument("--data-root", dest="data_root", help="Override dataset root directory")
+    parser.add_argument("--epochs", type=int, help="Override number of epochs")
+    parser.add_argument("--batch-size", type=int, help="Override batch size")
+    parser.add_argument("--learning-rate", type=float, dest="learning_rate", help="Override learning rate")
+    return parser.parse_args()
+
+
+def main():
+    args = parse_args()
+    cfg = load_config(args.config)
+    cfg = apply_overrides(cfg, args)
+    cfg = resolve_paths(cfg)
+
+    set_random_seeds(cfg["training"].get("seed", 42))
+
+    image_size = cfg["data"]["image_size"]
+    input_channels = cfg["model"]["input_channels"]
+    class_names = cfg["data"]["class_names"]
+
+    train_aug = get_training_augmentation() if cfg.get("augmentation", {}).get("enable", False) else None
+
+    train_loader = build_dataloader(
+        cfg["data"]["train_images"],
+        cfg["data"]["train_masks"],
+        class_names,
+        batch_size=cfg["training"]["batch_size"],
+        image_size=image_size,
+        augmentation=train_aug,
+        shuffle=True,
+    )
+    val_loader = build_dataloader(
+        cfg["data"]["val_images"],
+        cfg["data"]["val_masks"],
+        class_names,
+        batch_size=cfg["training"]["batch_size"],
+        image_size=image_size,
+        augmentation=None,
+        shuffle=False,
+    )
+
+    model = build_unet(
+        input_size=(image_size, image_size, input_channels),
+        num_classes=len(class_names),
+        base_filters=cfg["model"].get("base_filters", 32),
+        learning_rate=cfg["training"]["learning_rate"],
+    )
+
+    steps_per_epoch = cfg["training"].get("steps_per_epoch") or len(train_loader)
+    validation_steps = cfg["training"].get("validation_steps") or len(val_loader)
+
+    callbacks = create_callbacks(cfg)
+
+    model.fit(
+        train_loader,
+        validation_data=val_loader,
+        epochs=cfg["training"]["epochs"],
+        steps_per_epoch=steps_per_epoch,
+        validation_steps=validation_steps,
+        callbacks=callbacks,
+        use_multiprocessing=cfg["training"].get("use_multiprocessing", False),
+        workers=cfg["training"].get("workers", 1),
+    )
+
+
+if __name__ == "__main__":
+    main()
+
+--- src/utils/__init__.py ---
+
+
+--- src/utils/config.py ---
+import argparse
+import copy
+from pathlib import Path
+from typing import Any, Dict
+import yaml
+
+def load_config(config_path: str) -> Dict[str, Any]:
+    with open(config_path, "r", encoding="utf-8") as f:
+        cfg = yaml.safe_load(f)
+    return cfg
+
+def apply_overrides(cfg: Dict[str, Any], args: argparse.Namespace) -> Dict[str, Any]:
+    cfg = copy.deepcopy(cfg)
+    if getattr(args, "data_root", None):
+        cfg["data"]["root"] = args.data_root
+    if getattr(args, "epochs", None):
+        cfg["training"]["epochs"] = args.epochs
+    if getattr(args, "batch_size", None):
+        cfg["training"]["batch_size"] = args.batch_size
+    if getattr(args, "learning_rate", None):
+        cfg["training"]["learning_rate"] = args.learning_rate
+    return cfg
+
+def resolve_paths(cfg: Dict[str, Any]) -> Dict[str, Any]:
+    cfg = copy.deepcopy(cfg)
+    data_root = Path(cfg["data"]["root"]).expanduser().resolve()
+    cfg["data"]["root"] = data_root
+    for key in [
+        "train_images",
+        "train_masks",
+        "val_images",
+        "val_masks",
+        "test_images",
+        "test_masks",
+    ]:
+        cfg["data"][key] = (data_root / cfg["data"][key]).resolve()
+    training = cfg.get("training", {})
+    for path_key in ["log_dir", "checkpoint_dir"]:
+        if path_key in training:
+            training[path_key] = Path(training[path_key]).expanduser().resolve()
+            training[path_key].mkdir(parents=True, exist_ok=True)
+    return cfg
+
+--- tests/test_smoke_3d_pipeline.py ---
+import json
+from pathlib import Path
+
+import nibabel as nib
+import numpy as np
+import torch
+import yaml
+from monai.networks.nets import UNet
+
+from src.data.msd_task01_3d import MSDTask01Dataset3D, list_msd_task01_cases
+from src.eval_3d import main as eval_main
+
+
+def _write_msd_case(root: Path):
+    images_dir = root / "imagesTr"
+    labels_dir = root / "labelsTr"
+    images_dir.mkdir(parents=True)
+    labels_dir.mkdir(parents=True)
+
+    image = np.random.rand(16, 16, 16, 4).astype("float32")
+    label = np.zeros((16, 16, 16), dtype="uint8")
+    label[4:8, 4:8, 4:8] = 1
+
+    image_path = images_dir / "case_000.nii.gz"
+    label_path = labels_dir / "case_000.nii.gz"
+    nib.save(nib.Nifti1Image(image, affine=np.eye(4)), str(image_path))
+    nib.save(nib.Nifti1Image(label, affine=np.eye(4)), str(label_path))
+
+
+def test_3d_dataset_model_eval(tmp_path: Path, monkeypatch):
+    _write_msd_case(tmp_path)
+    cases = list_msd_task01_cases(tmp_path)
+    dataset = MSDTask01Dataset3D(
+        cases,
+        roi_size=(16, 16, 16),
+        label_mode="binary",
+        num_classes=2,
+        pos_ratio=1.0,
+        percentiles=(0.5, 99.5),
+        mode="train",
+        seed=123,
+    )
+
+    image, label = dataset[0]
+    assert image.shape == (4, 16, 16, 16)
+    assert label.shape == (2, 16, 16, 16)
+
+    model = UNet(
+        spatial_dims=3,
+        in_channels=4,
+        out_channels=2,
+        channels=(8, 16),
+        strides=(2,),
+        num_res_units=1,
+        norm="batch",
+    )
+    with torch.no_grad():
+        output = model(image.unsqueeze(0))
+    assert output.shape[1] == 2
+
+    weights_path = tmp_path / "weights.pt"
+    torch.save(model.state_dict(), weights_path)
+
+    config = {
+        "data": {
+            "root": str(tmp_path),
+            "train_ratio": 0.0,
+            "val_ratio": 1.0,
+            "seed": 42,
+            "label_mode": "binary",
+            "class_names": ["background", "tumor"],
+            "roi_size": [16, 16, 16],
+            "pos_ratio": 1.0,
+            "percentiles": [0.5, 99.5],
+        },
+        "model": {
+            "in_channels": 4,
+            "channels": [8, 16],
+            "strides": [2],
+            "num_res_units": 1,
+            "norm": "batch",
+        },
+        "training": {
+            "batch_size": 1,
+            "learning_rate": 0.0001,
+            "max_epochs": 1,
+            "num_workers": 0,
+            "seed": 42,
+            "deterministic": True,
+            "output_dir": "./outputs/runs",
+            "limit_train_batches": 1,
+            "limit_val_batches": 1,
+        },
+        "inference": {"roi_size": [16, 16, 16], "overlap": 0.0, "sw_batch_size": 1},
+    }
+    config_path = tmp_path / "config_3d.yaml"
+    with config_path.open("w", encoding="utf-8") as f:
+        yaml.safe_dump(config, f, sort_keys=False)
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        "sys.argv",
+        ["python", "-m", "src.eval_3d", "--config", str(config_path), "--weights", str(weights_path)],
+    )
+    eval_main()
+
+    metrics_path = tmp_path / "outputs" / "metrics_3d.json"
+    assert metrics_path.exists()
+    metrics = json.loads(metrics_path.read_text())
+    assert "val" in metrics and "test" in metrics
+
+--- tests/test_smoke_pipeline.py ---
+from pathlib import Path
+
+import nibabel as nib
+import numpy as np
+
+import imageio
+
+from src.data import prepare_slices
+
+
+def test_prepare_slices_msd_task01(tmp_path: Path):
+    images_dir = tmp_path / "imagesTr"
+    labels_dir = tmp_path / "labelsTr"
+    images_dir.mkdir(parents=True)
+    labels_dir.mkdir(parents=True)
+
+    image = np.random.rand(32, 32, 8, 4).astype("float32")
+    label = np.zeros((32, 32, 8), dtype="uint8")
+    label[8:16, 8:16, 3] = 1
+
+    image_path = images_dir / "brain_000.nii.gz"
+    label_path = labels_dir / "brain_000.nii.gz"
+    nib.save(nib.Nifti1Image(image, affine=np.eye(4)), str(image_path))
+    nib.save(nib.Nifti1Image(label, affine=np.eye(4)), str(label_path))
+
+    output_root = tmp_path / "Dataset"
+    prepare_slices.prepare_dataset(
+        dataset_root=tmp_path,
+        output_root=output_root,
+        slices_per_volume=2,
+        dataset_format="msd_task01",
+        channel="flair",
+        label_mode="binary",
+    )
+
+    pngs = sorted(output_root.rglob("*.png"))
+    assert len(pngs) == 4
+
+    mask_paths = sorted((output_root / "test_masks" / "test").glob("*.png"))
+    assert mask_paths
+    mask = imageio.imread(mask_paths[0])
+    assert mask.ndim == 2
+    assert mask.dtype == np.uint8
+    assert set(np.unique(mask)).issubset({0, 1})
+
+--- train.py ---
+"""Entry point for training using the modular pipeline."""
+from src.training.train import main
+
+
+if __name__ == "__main__":
+    main()
