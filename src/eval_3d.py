@@ -82,7 +82,7 @@ def _compute_dice(pred: torch.Tensor, target: torch.Tensor, include_background: 
     intersection = (pred * target).sum(dim=(2, 3, 4))
     denom = pred.sum(dim=(2, 3, 4)) + target.sum(dim=(2, 3, 4))
     dice = torch.where(denom > 0, (2.0 * intersection) / denom, torch.ones_like(denom))
-    return dice.mean(dim=0)
+    return dice
 
 
 def _align_label_spatial(label: torch.Tensor, pred: torch.Tensor) -> torch.Tensor:
@@ -189,7 +189,7 @@ def evaluate_split(
                 ).permute(0, 4, 1, 2, 3).float()
             label = _align_label_spatial(label, pred)
             dice = _compute_dice(pred, label, include_background=True)
-            dice_scores.append(dice.cpu().numpy())
+            dice_scores.append(dice.mean(dim=0).cpu().numpy())
             batch_sum, batch_count = _accumulate_dice(dice, label, num_classes, ignore_empty_foreground)
             dice_sum += batch_sum
             dice_count += batch_count
