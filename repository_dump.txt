@@ -768,11 +768,21 @@ def build_dataloaders(cfg: Dict) -> Tuple[torch.utils.data.DataLoader, torch.uti
     return train_loader, val_loader
 
 
+def _ensure_5d(tensor: torch.Tensor, name: str) -> torch.Tensor:
+    if tensor.ndim == 4:
+        return tensor.unsqueeze(0)
+    if tensor.ndim == 5:
+        return tensor
+    if tensor.ndim == 6 and tensor.shape[1] == 1:
+        return tensor.squeeze(1)
+    raise ValueError(f"{name} has unexpected shape {tuple(tensor.shape)}")
+
+
 def compute_dice(pred: torch.Tensor, target: torch.Tensor, include_background: bool) -> torch.Tensor:
+    pred = _ensure_5d(pred, "pred")
+    target = _ensure_5d(target, "target")
     if pred.shape[0] != target.shape[0]:
         raise ValueError(f"Batch mismatch: pred {pred.shape} vs target {target.shape}")
-    if target.ndim == 4:
-        target = target.unsqueeze(1)
     if target.shape[1] != pred.shape[1]:
         target = torch.argmax(target, dim=1, keepdim=True)
         target = torch.nn.functional.one_hot(
@@ -984,8 +994,6 @@ def main():
                     val_loss += loss_fn(logits, labels).item()
                     val_batches += 1
                     preds = post_pred(torch.softmax(logits, dim=1))
-                    if preds.ndim == 5:
-                        preds = preds.unsqueeze(0)
                     if debug_shapes and val_idx == 0:
                         logger.info(
                             "val shapes | images=%s labels=%s preds=%s",
@@ -1049,7 +1057,7 @@ def main():
                     run_dir,
                     epoch + 1,
                     num_classes,
-                    max_vis_cases=max_vis_cases,
+                    max_vis_cases,
                 )
 
     logger.info("Best val mean Dice: %.4f", best_dice)
