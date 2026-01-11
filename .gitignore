@@ -29,6 +29,9 @@ dist/
 # TensorBoard / checkpoints / outputs
 outputs/
 outputs/runs/
+outputs/baseline_v1/
+outputs/baseline_metrics.json
+outputs/metrics_3d.json
 brain-tumor-run/
 logs/
 
