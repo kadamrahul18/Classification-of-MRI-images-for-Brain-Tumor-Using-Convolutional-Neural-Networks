@@ -12,7 +12,7 @@ from typing import Dict, List, Tuple
 import numpy as np
 import torch
 import yaml
-from monai.losses import DiceCELoss
+from monai.losses import DiceCELoss, DiceLoss
 from monai.networks.nets import UNet
 from PIL import Image
 from torch.utils.tensorboard import SummaryWriter
@@ -351,12 +351,26 @@ def main():
     model = build_model(cfg, num_classes).to(device)
 
     is_binary = data_cfg["label_mode"] == "binary"
-    loss_fn = DiceCELoss(
-        to_onehot_y=False,
-        softmax=not is_binary,
-        sigmoid=is_binary,
-        include_background=False,
-    )
+    if is_binary:
+        pos_weight_value = float(cfg["training"].get("pos_weight", 5.0))
+        pos_weight = torch.tensor([pos_weight_value], device=device)
+        bce_loss = torch.nn.BCEWithLogitsLoss(pos_weight=pos_weight)
+        dice_loss = DiceLoss(sigmoid=True, include_background=False)
+
+        def loss_fn(logits: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
+            if labels.shape[1] != 2:
+                raise ValueError(
+                    f"Expected binary one-hot labels with C=2, got shape {tuple(labels.shape)}"
+                )
+            target = labels[:, 1:2]
+            return dice_loss(logits, target) + bce_loss(logits, target)
+
+    else:
+        loss_fn = DiceCELoss(
+            to_onehot_y=False,
+            softmax=True,
+            include_background=False,
+        )
     optimizer = torch.optim.Adam(model.parameters(), lr=cfg["training"]["learning_rate"])
     scaler = torch.amp.GradScaler("cuda", enabled=torch.cuda.is_available())
 
@@ -381,6 +395,10 @@ def main():
         logger.info("CUDA capability: %s", torch.cuda.get_device_capability(0))
     logger.info("AMP enabled: %s", torch.cuda.is_available())
     logger.info("prediction_threshold: %s", cfg["training"].get("prediction_threshold", 0.5))
+    logger.info(
+        "pred_rule: %s",
+        f"sigmoid>{cfg['training'].get('prediction_threshold', 0.5)}" if is_binary else "argmax over softmax logits",
+    )
     if "OMP_NUM_THREADS" not in os.environ or "MKL_NUM_THREADS" not in os.environ:
         logger.warning(
             "For best throughput set: OMP_NUM_THREADS=1 and MKL_NUM_THREADS=1"
