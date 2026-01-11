@@ -789,9 +789,15 @@ def compute_dice(pred: torch.Tensor, target: torch.Tensor, include_background: b
             target.long().squeeze(1), num_classes=pred.shape[1]
         ).permute(0, 4, 1, 2, 3).float()
     target = target.to(pred.device)
-    dice_metric = DiceMetric(include_background=include_background, reduction="none")
-    dice_metric(y_pred=pred, y=target)
-    return dice_metric.aggregate()
+    pred = pred.float()
+    target = target.float()
+    if not include_background and pred.shape[1] > 1:
+        pred = pred[:, 1:]
+        target = target[:, 1:]
+    intersection = (pred * target).sum(dim=(2, 3, 4))
+    denom = pred.sum(dim=(2, 3, 4)) + target.sum(dim=(2, 3, 4))
+    dice = torch.where(denom > 0, (2.0 * intersection) / denom, torch.ones_like(denom))
+    return dice.mean(dim=0)
 
 
 def _normalize_slice(slice_array: np.ndarray) -> np.ndarray:
