@@ -13,7 +13,6 @@ data:
   class_names: [background, tumor]
   roi_size: [96, 96, 96]
   pos_ratio: 0.7
-  max_pos_attempts: 10
   percentiles: [0.5, 99.5]
 
 model:
@@ -36,12 +35,9 @@ training:
   log_interval: 20
   vis_interval: 10
   max_vis_cases: 3
-  debug_shapes: false
-  ignore_empty_foreground: true
-  log_sanity_steps: 50
+  debug_shapes: true
 
 inference:
   roi_size: [96, 96, 96]
   overlap: 0.5
   sw_batch_size: 2
-  ignore_empty_foreground: true

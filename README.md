@@ -215,14 +215,23 @@ curl -X POST "http://localhost:8080/vertex/predict" \
 ## 📊 Results
 3D evaluation writes per-class Dice scores and mean Dice to `outputs/metrics_3d.json`.
 2D evaluation writes to `outputs/metrics.json`.
+Per-epoch training metrics (including per-class Dice) are saved to `outputs/runs/<run>/metrics_per_epoch.json`.
 
 Example output format (placeholder until you run it):
 ```json
 {
   "dataset_format": "msd_task01",
   "label_mode": "binary",
-  "val": { "dice_per_class": { "background": null }, "mean_dice": null },
-  "test": { "dice_per_class": { "background": null }, "mean_dice": null }
+  "val": {
+    "dice_per_class": { "background": null, "tumor": null },
+    "mean_dice": null,
+    "foreground_mean_dice": null
+  },
+  "test": {
+    "dice_per_class": { "background": null, "tumor": null },
+    "mean_dice": null,
+    "foreground_mean_dice": null
+  }
 }
 ```
 
@@ -230,3 +239,8 @@ Example output format (placeholder until you run it):
 - MSD Task01 channel order is assumed to be `[t1, t1ce, t2, flair]` when selecting `--channel`.
 - For binary masks, update `configs/config.yaml` to use two classes (e.g., `class_names: [background, tumor]`).
  - Volume inference via API is not implemented yet. TODO: add a NIfTI endpoint for 3D inference.
+
+**Metric conventions (3D):**
+- Per-class Dice is always reported (including background).
+- Foreground/tumor Dice ignores empty-ground-truth volumes/patches (`ignore_empty_foreground: true` by default).
+- Best checkpoint selection uses foreground Dice (not background-inflated mean).

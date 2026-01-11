@@ -29,6 +29,7 @@ dist/
 # TensorBoard / checkpoints / outputs
 outputs/
 outputs/runs/
+brain-tumor-run/
 logs/
 
 # Weights and datasets

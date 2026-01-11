@@ -13,9 +13,7 @@ import numpy as np
 import torch
 import yaml
 from monai.losses import DiceCELoss
-from monai.metrics import DiceMetric
 from monai.networks.nets import UNet
-from monai.transforms import AsDiscrete
 from PIL import Image
 from torch.utils.tensorboard import SummaryWriter
 
@@ -113,6 +111,7 @@ def build_dataloaders(cfg: Dict) -> Tuple[torch.utils.data.DataLoader, torch.uti
         percentiles=percentiles,
         mode="train",
         seed=data_cfg.get("seed", 42),
+        max_pos_attempts=data_cfg.get("max_pos_attempts", 10),
     )
     val_dataset = MSDTask01Dataset3D(
         splits["val"],
@@ -179,7 +178,58 @@ def compute_dice(pred: torch.Tensor, target: torch.Tensor, include_background: b
     intersection = (pred * target).sum(dim=(2, 3, 4))
     denom = pred.sum(dim=(2, 3, 4)) + target.sum(dim=(2, 3, 4))
     dice = torch.where(denom > 0, (2.0 * intersection) / denom, torch.ones_like(denom))
-    return dice.mean(dim=0)
+    return dice
+
+
+def _validate_labels(labels: torch.Tensor, num_classes: int) -> None:
+    if labels.ndim != 5:
+        raise ValueError(f"Expected labels shape (B,C,D,H,W), got {tuple(labels.shape)}")
+    if labels.shape[1] != num_classes:
+        raise ValueError(
+            f"Label channel mismatch: expected C={num_classes}, got C={labels.shape[1]}"
+        )
+    if labels.min().item() < -1e-3 or labels.max().item() > 1 + 1e-3:
+        raise ValueError("Labels must be in [0,1] for one-hot encoding")
+    channel_sum = labels.sum(dim=1)
+    if not torch.allclose(channel_sum, torch.ones_like(channel_sum), atol=1e-3):
+        raise ValueError("Labels must be one-hot encoded (sum across channels = 1).")
+
+
+def _pred_to_onehot(logits: torch.Tensor, num_classes: int) -> torch.Tensor:
+    pred_labels = torch.argmax(logits, dim=1, keepdim=True)
+    return torch.nn.functional.one_hot(
+        pred_labels.squeeze(1), num_classes=num_classes
+    ).permute(0, 4, 1, 2, 3).float()
+
+
+def _foreground_mask(labels: torch.Tensor) -> torch.Tensor:
+    if labels.shape[1] == 1:
+        return labels[:, 0] > 0.5
+    return labels[:, 1:].sum(dim=1) > 0
+
+
+def _log_sanity_stats(
+    logger: logging.Logger,
+    preds: torch.Tensor,
+    labels: torch.Tensor,
+    prefix: str,
+) -> None:
+    foreground_gt = _foreground_mask(labels)
+    foreground_pred = _foreground_mask(preds)
+    tumor_voxel_frac = foreground_gt.float().mean().item()
+    pred_tumor_frac = foreground_pred.float().mean().item()
+    tp = (foreground_pred & foreground_gt).sum().item()
+    fp = (foreground_pred & ~foreground_gt).sum().item()
+    fn = (~foreground_pred & foreground_gt).sum().item()
+    logger.info(
+        "%s tumor_voxel_frac=%.6f pred_tumor_voxel_frac=%.6f tp=%s fp=%s fn=%s",
+        prefix,
+        tumor_voxel_frac,
+        pred_tumor_frac,
+        int(tp),
+        int(fp),
+        int(fn),
+    )
 
 
 def _normalize_slice(slice_array: np.ndarray) -> np.ndarray:
@@ -295,12 +345,13 @@ def main():
     )
     optimizer = torch.optim.Adam(model.parameters(), lr=cfg["training"]["learning_rate"])
     scaler = torch.amp.GradScaler("cuda", enabled=torch.cuda.is_available())
-    post_pred = AsDiscrete(argmax=True, to_onehot=num_classes)
 
     train_loader, val_loader = build_dataloaders(cfg)
     log_interval = cfg["training"].get("log_interval", 0)
     vis_interval = cfg["training"].get("vis_interval", 5)
     max_vis_cases = cfg["training"].get("max_vis_cases", 3)
+    ignore_empty_foreground = cfg["training"].get("ignore_empty_foreground", True)
+    log_sanity_steps = int(cfg["training"].get("log_sanity_steps", 50))
     logger.info("Train batches per epoch: %s | Val batches: %s", len(train_loader), len(val_loader))
     logger.info("Using device: %s", device)
     logger.info("ROI size: %s", data_cfg.get("roi_size"))
@@ -310,6 +361,7 @@ def main():
         cfg["training"].get("limit_train_batches"),
         cfg["training"].get("limit_val_batches"),
     )
+    logger.info("ignore_empty_foreground: %s | pred_rule: argmax over softmax logits", ignore_empty_foreground)
     if torch.cuda.is_available():
         logger.info("GPU name: %s", torch.cuda.get_device_name(0))
         logger.info("CUDA capability: %s", torch.cuda.get_device_capability(0))
@@ -319,13 +371,29 @@ def main():
             "For best throughput set: OMP_NUM_THREADS=1 and MKL_NUM_THREADS=1"
         )
 
-    best_dice = -1.0
+    best_fg_dice = -1.0
+    best_val_loss = float("inf")
+    best_epoch = 0
     metrics_path = run_dir / "metrics.csv"
     tb_writer = SummaryWriter(log_dir=run_dir)
+    metrics_json_path = run_dir / "metrics_per_epoch.json"
+    metrics_history = []
     with metrics_path.open("w", newline="", encoding="utf-8") as f:
         csv_writer = csv.writer(f)
-        csv_writer.writerow(["epoch", "train_loss", "val_mean_dice"])
+        csv_writer.writerow(
+            [
+                "epoch",
+                "train_loss",
+                "val_loss",
+                "val_mean_dice",
+                "val_foreground_dice",
+                "val_dice_background",
+                "val_dice_tumor",
+                "lr",
+            ]
+        )
 
+        global_step = 0
         for epoch in range(cfg["training"]["max_epochs"]):
             logger.info("Epoch %s/%s", epoch + 1, cfg["training"]["max_epochs"])
             if torch.cuda.is_available():
@@ -335,12 +403,19 @@ def main():
             batch_count = 0
             step_time = 0.0
             step_window = 0
+            pos_batches = 0
+            total_batches = 0
+            logged_device = False
             for batch_idx, (images, labels) in enumerate(train_loader):
                 if cfg["training"].get("limit_train_batches") and batch_idx >= cfg["training"]["limit_train_batches"]:
                     break
                 start = time.perf_counter()
                 images = images.to(device, non_blocking=True)
                 labels = labels.to(device, non_blocking=True)
+                if not logged_device:
+                    logger.info("Model device: %s | Batch device: %s", next(model.parameters()).device, images.device)
+                    logged_device = True
+                _validate_labels(labels, num_classes)
                 optimizer.zero_grad(set_to_none=True)
                 with torch.autocast(device_type=device.type, enabled=torch.cuda.is_available()):
                     logits = model(images)
@@ -350,8 +425,14 @@ def main():
                 scaler.update()
                 train_loss += loss.item()
                 batch_count += 1
+                total_batches += 1
+                preds = _pred_to_onehot(logits, num_classes)
+                if _foreground_mask(labels).any():
+                    pos_batches += 1
                 step_time += time.perf_counter() - start
                 step_window += 1
+                if global_step < log_sanity_steps or batch_idx == 0:
+                    _log_sanity_stats(logger, preds, labels, "train")
                 if log_interval and batch_idx % log_interval == 0:
                     avg_step = step_time / max(1, step_window)
                     logger.info(
@@ -363,12 +444,18 @@ def main():
                     )
                     step_time = 0.0
                     step_window = 0
+                global_step += 1
 
             train_loss /= max(1, batch_count)
+            observed_pos_ratio = pos_batches / max(1, total_batches)
+            logger.info("Observed train pos_ratio (patches w/ tumor): %.3f", observed_pos_ratio)
+            tb_writer.add_scalar("data/pos_ratio", observed_pos_ratio, epoch + 1)
 
             model.eval()
             dice_scores: List[float] = []
             dice_per_class: List[np.ndarray] = []
+            dice_sum = np.zeros(num_classes, dtype=np.float64)
+            dice_count = np.zeros(num_classes, dtype=np.float64)
             val_loss = 0.0
             val_batches = 0
             debug_shapes = cfg["training"].get("debug_shapes", False)
@@ -378,13 +465,11 @@ def main():
                         break
                     images = images.to(device)
                     labels = labels.to(device)
+                    _validate_labels(labels, num_classes)
                     logits = model(images)
                     val_loss += loss_fn(logits, labels).item()
                     val_batches += 1
-                    pred_labels = torch.argmax(logits, dim=1, keepdim=True)
-                    preds = torch.nn.functional.one_hot(
-                        pred_labels.squeeze(1), num_classes=num_classes
-                    ).permute(0, 4, 1, 2, 3).float()
+                    preds = _pred_to_onehot(logits, num_classes)
                     if debug_shapes and val_idx == 0:
                         logger.info(
                             "val shapes | images=%s labels=%s logits=%s preds=%s",
@@ -396,6 +481,18 @@ def main():
                     dice = compute_dice(preds, labels, include_background=True)
                     dice_scores.append(dice.mean().item())
                     dice_per_class.append(dice.mean(dim=0).cpu().numpy())
+                    target_sum = labels.sum(dim=(2, 3, 4))
+                    for cls_idx in range(num_classes):
+                        if cls_idx == 0:
+                            valid = np.ones(target_sum.shape[0], dtype=bool)
+                        else:
+                            valid = target_sum[:, cls_idx].cpu().numpy() > 0
+                            if not ignore_empty_foreground:
+                                valid = np.ones_like(valid, dtype=bool)
+                        dice_vals = dice[:, cls_idx].detach().cpu().numpy()
+                        if valid.any():
+                            dice_sum[cls_idx] += dice_vals[valid].sum()
+                            dice_count[cls_idx] += valid.sum()
                     if log_interval and val_idx % log_interval == 0:
                         logger.info(
                             "  val step %s/%s mean_dice=%.4f",
@@ -406,17 +503,44 @@ def main():
 
             val_mean_dice = float(np.mean(dice_scores)) if dice_scores else 0.0
             val_loss = val_loss / max(1, val_batches)
-            csv_writer.writerow([epoch + 1, f"{train_loss:.6f}", f"{val_mean_dice:.6f}"])
+            lr = optimizer.param_groups[0]["lr"]
+            val_dice_per_class = np.where(
+                dice_count > 0, dice_sum / np.maximum(dice_count, 1.0), 0.0
+            )
+            val_dice_background = float(val_dice_per_class[0]) if num_classes > 0 else 0.0
+            val_dice_tumor = float(val_dice_per_class[1]) if num_classes > 1 else 0.0
+            if num_classes > 1:
+                val_foreground_dice = float(np.mean(val_dice_per_class[1:]))
+            else:
+                val_foreground_dice = float(val_dice_per_class[0]) if num_classes > 0 else 0.0
+            csv_writer.writerow(
+                [
+                    epoch + 1,
+                    f"{train_loss:.6f}",
+                    f"{val_loss:.6f}",
+                    f"{val_mean_dice:.6f}",
+                    f"{val_foreground_dice:.6f}",
+                    f"{val_dice_background:.6f}",
+                    f"{val_dice_tumor:.6f}",
+                    f"{lr:.8f}",
+                ]
+            )
             f.flush()
 
             tb_writer.add_scalar("loss/train", train_loss, epoch + 1)
             tb_writer.add_scalar("loss/val", val_loss, epoch + 1)
             tb_writer.add_scalar("dice_mean/val", val_mean_dice, epoch + 1)
-            if dice_per_class and num_classes > 2:
-                per_class = np.mean(np.stack(dice_per_class, axis=0), axis=0)
-                for idx, score in enumerate(per_class):
-                    tb_writer.add_scalar(f"dice/val_class_{idx}", float(score), epoch + 1)
-            lr = optimizer.param_groups[0]["lr"]
+            tb_writer.add_scalar("dice_foreground/val", val_foreground_dice, epoch + 1)
+            if dice_per_class:
+                for idx in range(num_classes):
+                    tb_writer.add_scalar(
+                        f"dice/val_class_{idx}",
+                        float(val_dice_per_class[idx]) if idx < len(val_dice_per_class) else 0.0,
+                        epoch + 1,
+                    )
+            if num_classes > 1:
+                tb_writer.add_scalar("dice/val_background", val_dice_background, epoch + 1)
+                tb_writer.add_scalar("dice/val_tumor", val_dice_tumor, epoch + 1)
             tb_writer.add_scalar("lr", lr, epoch + 1)
             if torch.cuda.is_available():
                 gpu_mem = torch.cuda.max_memory_allocated() / (1024**2)
@@ -427,18 +551,54 @@ def main():
             else:
                 gpu_mem = 0.0
             logger.info(
-                "Epoch %s summary | train_loss=%.4f val_loss=%.4f val_mean_dice=%.4f lr=%.6f gpu_mem_max_mb=%.1f",
+                "Epoch %s summary | train_loss=%.4f val_loss=%.4f val_mean_dice=%.4f val_foreground_dice=%.4f val_dice_background=%.4f val_dice_tumor=%.4f lr=%.6f gpu_mem_max_mb=%.1f",
                 epoch + 1,
                 train_loss,
                 val_loss,
                 val_mean_dice,
+                val_foreground_dice,
+                val_dice_background,
+                val_dice_tumor,
                 lr,
                 gpu_mem,
             )
 
-            if val_mean_dice > best_dice:
-                best_dice = val_mean_dice
+            metrics_history.append(
+                {
+                    "epoch": epoch + 1,
+                    "train_loss": float(train_loss),
+                    "val_loss": float(val_loss),
+                    "val_mean_dice": float(val_mean_dice),
+                    "val_foreground_dice": float(val_foreground_dice),
+                    "val_dice_per_class": val_dice_per_class.tolist(),
+                    "val_dice_background": float(val_dice_background),
+                    "val_dice_tumor": float(val_dice_tumor),
+                    "lr": float(lr),
+                    "ignore_empty_foreground": bool(ignore_empty_foreground),
+                    "include_background": True,
+                    "pred_rule": "argmax over softmax logits",
+                    "class_names": data_cfg.get("class_names", []),
+                }
+            )
+            with metrics_json_path.open("w", encoding="utf-8") as json_f:
+                json.dump(metrics_history, json_f, indent=2)
+
+            improved = False
+            if val_foreground_dice > best_fg_dice:
+                improved = True
+            elif abs(val_foreground_dice - best_fg_dice) < 1e-6 and val_loss < best_val_loss:
+                improved = True
+            if improved:
+                best_fg_dice = val_foreground_dice
+                best_val_loss = val_loss
+                best_epoch = epoch + 1
                 torch.save(model.state_dict(), run_dir / "best.pt")
+                logger.info(
+                    "New best model | val_tumor_dice=%.4f val_foreground_dice=%.4f epoch=%s",
+                    val_dice_tumor,
+                    val_foreground_dice,
+                    best_epoch,
+                )
 
             if (epoch + 1) % vis_interval == 0:
                 _log_visuals(
@@ -452,7 +612,7 @@ def main():
                     max_vis_cases,
                 )
 
-    logger.info("Best val mean Dice: %.4f", best_dice)
+    logger.info("Best val tumor/foreground Dice: %.4f at epoch %s", best_fg_dice, best_epoch)
     logger.info("Run directory: %s", run_dir)
     tb_writer.close()
 

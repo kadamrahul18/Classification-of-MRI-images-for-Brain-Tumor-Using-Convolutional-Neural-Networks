@@ -81,6 +81,38 @@ def _compute_dice(pred: torch.Tensor, target: torch.Tensor, include_background: 
     return dice.mean(dim=0)
 
 
+def _foreground_mean(dice_per_class: List[float]) -> float:
+    if not dice_per_class:
+        return 0.0
+    if len(dice_per_class) == 1:
+        return float(dice_per_class[0])
+    return float(np.mean(dice_per_class[1:]))
+
+
+def _accumulate_dice(
+    dice: torch.Tensor,
+    label: torch.Tensor,
+    num_classes: int,
+    ignore_empty_foreground: bool,
+) -> Tuple[np.ndarray, np.ndarray]:
+    label = _ensure_5d(label, "label")
+    target_sum = label.sum(dim=(2, 3, 4))
+    dice_sum = np.zeros(num_classes, dtype=np.float64)
+    dice_count = np.zeros(num_classes, dtype=np.float64)
+    for cls_idx in range(num_classes):
+        if cls_idx == 0:
+            valid = np.ones(target_sum.shape[0], dtype=bool)
+        else:
+            valid = target_sum[:, cls_idx].cpu().numpy() > 0
+            if not ignore_empty_foreground:
+                valid = np.ones_like(valid, dtype=bool)
+        dice_vals = dice[:, cls_idx].detach().cpu().numpy()
+        if valid.any():
+            dice_sum[cls_idx] += dice_vals[valid].sum()
+            dice_count[cls_idx] += valid.sum()
+    return dice_sum, dice_count
+
+
 def setup_logging():
     logger = logging.getLogger("eval_3d")
     logger.setLevel(logging.INFO)
@@ -102,11 +134,14 @@ def evaluate_split(
     num_classes: int,
     logger: logging.Logger,
     split_name: str,
+    ignore_empty_foreground: bool,
     log_interval: int = 1,
-) -> Tuple[List[float], int]:
+) -> Tuple[List[float], float, int]:
     model.eval()
 
     dice_scores = []
+    dice_sum = np.zeros(num_classes, dtype=np.float64)
+    dice_count = np.zeros(num_classes, dtype=np.float64)
     with torch.no_grad():
         start_time = time.perf_counter()
         for idx, (image, label) in enumerate(dataset, start=1):
@@ -121,6 +156,9 @@ def evaluate_split(
             ).permute(0, 4, 1, 2, 3).float()
             dice = _compute_dice(pred, label, include_background=True)
             dice_scores.append(dice.cpu().numpy())
+            batch_sum, batch_count = _accumulate_dice(dice, label, num_classes, ignore_empty_foreground)
+            dice_sum += batch_sum
+            dice_count += batch_count
             if log_interval and idx % log_interval == 0:
                 elapsed = time.perf_counter() - start_time
                 logger.info(
@@ -132,9 +170,11 @@ def evaluate_split(
                 )
 
     if not dice_scores:
-        return [0.0] * num_classes, 0
+        return [0.0] * num_classes, 0.0, 0
     dice_scores = np.stack(dice_scores, axis=0)
-    return dice_scores.mean(axis=0).tolist(), len(dice_scores)
+    dice_per_class = np.where(dice_count > 0, dice_sum / np.maximum(dice_count, 1.0), 0.0)
+    foreground_dice = _foreground_mean(dice_per_class.tolist())
+    return dice_per_class.tolist(), float(foreground_dice), len(dice_scores)
 
 
 def main():
@@ -190,12 +230,32 @@ def main():
     logger.info("Using device: %s", device)
     logger.info("ROI size: %s | overlap: %s | sw_batch_size: %s", roi_size, overlap, sw_batch_size)
     logger.info("Val volumes: %s | Test volumes: %s", len(val_dataset), len(test_dataset))
+    logger.info("ignore_empty_foreground: %s | pred_rule: argmax over softmax logits", ignore_empty_foreground)
 
-    val_dice, val_count = evaluate_split(
-        model, val_dataset, device, roi_size, overlap, sw_batch_size, num_classes, logger, "val"
+    ignore_empty_foreground = inference_cfg.get("ignore_empty_foreground", True)
+    val_dice, val_foreground, val_count = evaluate_split(
+        model,
+        val_dataset,
+        device,
+        roi_size,
+        overlap,
+        sw_batch_size,
+        num_classes,
+        logger,
+        "val",
+        ignore_empty_foreground,
     )
-    test_dice, test_count = evaluate_split(
-        model, test_dataset, device, roi_size, overlap, sw_batch_size, num_classes, logger, "test"
+    test_dice, test_foreground, test_count = evaluate_split(
+        model,
+        test_dataset,
+        device,
+        roi_size,
+        overlap,
+        sw_batch_size,
+        num_classes,
+        logger,
+        "test",
+        ignore_empty_foreground,
     )
 
     class_names = data_cfg.get("class_names", [f"class_{i}" for i in range(num_classes)])
@@ -208,17 +268,26 @@ def main():
         "val": {
             "dice_per_class": dict(zip(class_names, [float(x) for x in val_dice])),
             "mean_dice": float(np.mean(val_dice)) if val_dice else 0.0,
+            "foreground_mean_dice": float(val_foreground),
+            "dice_background": float(val_dice[0]) if val_dice else 0.0,
+            "dice_tumor": float(val_dice[1]) if len(val_dice) > 1 else 0.0,
             "number_of_volumes": val_count,
         },
         "test": {
             "dice_per_class": dict(zip(class_names, [float(x) for x in test_dice])),
             "mean_dice": float(np.mean(test_dice)) if test_dice else 0.0,
+            "foreground_mean_dice": float(test_foreground),
+            "dice_background": float(test_dice[0]) if test_dice else 0.0,
+            "dice_tumor": float(test_dice[1]) if len(test_dice) > 1 else 0.0,
             "number_of_volumes": test_count,
         },
         "inference": {
             "roi_size": list(roi_size),
             "overlap": overlap,
             "sw_batch_size": sw_batch_size,
+            "include_background": True,
+            "ignore_empty_foreground": bool(ignore_empty_foreground),
+            "pred_rule": "argmax over softmax logits",
         },
     }
 

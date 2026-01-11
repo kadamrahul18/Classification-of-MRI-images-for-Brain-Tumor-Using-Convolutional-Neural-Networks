@@ -142,7 +142,12 @@ def crop_or_pad(volume: np.ndarray, center: Sequence[int], roi_size: Sequence[in
     return volume[tuple(slices)]
 
 
-def sample_center(label: np.ndarray, roi_size: Sequence[int], pos_ratio: float, rng: np.random.Generator) -> Tuple[int, int, int]:
+def sample_center(
+    label: np.ndarray,
+    roi_size: Sequence[int],
+    pos_ratio: float,
+    rng: np.random.Generator,
+) -> Tuple[int, int, int]:
     foreground = np.argwhere(label > 0)
     if foreground.size > 0 and rng.random() < pos_ratio:
         center = foreground[rng.integers(0, len(foreground))]
@@ -164,6 +169,7 @@ class MSDTask01Dataset3D(torch.utils.data.Dataset):
         percentiles: Tuple[float, float],
         mode: str = "train",
         seed: int = 42,
+        max_pos_attempts: int = 10,
     ):
         self.cases = list(cases)
         self.roi_size = tuple(roi_size) if roi_size is not None else None
@@ -173,6 +179,7 @@ class MSDTask01Dataset3D(torch.utils.data.Dataset):
         self.percentiles = percentiles
         self.mode = mode
         self.rng = np.random.default_rng(seed)
+        self.max_pos_attempts = max_pos_attempts
 
     def __len__(self):
         return len(self.cases)
@@ -193,7 +200,15 @@ class MSDTask01Dataset3D(torch.utils.data.Dataset):
             num_classes = self.num_classes
 
         if self.roi_size is not None:
-            center = sample_center(label, self.roi_size, self.pos_ratio, self.rng)
+            has_foreground = np.any(label > 0)
+            want_pos = has_foreground and self.rng.random() < self.pos_ratio
+            center = sample_center(label, self.roi_size, 1.0 if want_pos else 0.0, self.rng)
+            if want_pos:
+                for _ in range(self.max_pos_attempts):
+                    center = sample_center(label, self.roi_size, 1.0, self.rng)
+                    label_patch = crop_or_pad(label, center, self.roi_size)
+                    if np.any(label_patch > 0):
+                        break
             image = np.stack([crop_or_pad(ch, center, self.roi_size) for ch in image], axis=0)
             label = crop_or_pad(label, center, self.roi_size)
 
