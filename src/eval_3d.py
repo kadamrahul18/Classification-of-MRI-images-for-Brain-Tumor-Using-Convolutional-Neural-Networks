@@ -132,6 +132,7 @@ def evaluate_split(
     overlap: float,
     sw_batch_size: int,
     num_classes: int,
+    is_binary: bool,
     logger: logging.Logger,
     split_name: str,
     ignore_empty_foreground: bool,
@@ -150,10 +151,16 @@ def evaluate_split(
             logits = sliding_window_inference(
                 image, roi_size=roi_size, sw_batch_size=sw_batch_size, predictor=model, overlap=overlap
             )
-            pred_labels = torch.argmax(logits, dim=1, keepdim=True)
-            pred = torch.nn.functional.one_hot(
-                pred_labels.squeeze(1), num_classes=num_classes
-            ).permute(0, 4, 1, 2, 3).float()
+            if is_binary:
+                probs = torch.sigmoid(logits)
+                pred = (probs > 0.5).float()
+                if pred.shape[1] == 1 and num_classes == 2:
+                    pred = torch.cat([1.0 - pred, pred], dim=1)
+            else:
+                pred_labels = torch.argmax(logits, dim=1, keepdim=True)
+                pred = torch.nn.functional.one_hot(
+                    pred_labels.squeeze(1), num_classes=num_classes
+                ).permute(0, 4, 1, 2, 3).float()
             dice = _compute_dice(pred, label, include_background=True)
             dice_scores.append(dice.cpu().numpy())
             batch_sum, batch_count = _accumulate_dice(dice, label, num_classes, ignore_empty_foreground)
@@ -233,6 +240,7 @@ def main():
     logger.info("ignore_empty_foreground: %s | pred_rule: argmax over softmax logits", ignore_empty_foreground)
 
     ignore_empty_foreground = inference_cfg.get("ignore_empty_foreground", True)
+    is_binary = data_cfg["label_mode"] == "binary"
     val_dice, val_foreground, val_count = evaluate_split(
         model,
         val_dataset,
@@ -241,6 +249,7 @@ def main():
         overlap,
         sw_batch_size,
         num_classes,
+        is_binary,
         logger,
         "val",
         ignore_empty_foreground,
@@ -253,6 +262,7 @@ def main():
         overlap,
         sw_batch_size,
         num_classes,
+        is_binary,
         logger,
         "test",
         ignore_empty_foreground,
@@ -287,7 +297,7 @@ def main():
             "sw_batch_size": sw_batch_size,
             "include_background": True,
             "ignore_empty_foreground": bool(ignore_empty_foreground),
-            "pred_rule": "argmax over softmax logits",
+            "pred_rule": "sigmoid>0.5" if is_binary else "argmax over softmax logits",
         },
     }
 

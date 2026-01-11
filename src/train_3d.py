@@ -195,7 +195,13 @@ def _validate_labels(labels: torch.Tensor, num_classes: int) -> None:
         raise ValueError("Labels must be one-hot encoded (sum across channels = 1).")
 
 
-def _pred_to_onehot(logits: torch.Tensor, num_classes: int) -> torch.Tensor:
+def _pred_to_onehot(logits: torch.Tensor, num_classes: int, is_binary: bool) -> torch.Tensor:
+    if is_binary:
+        probs = torch.sigmoid(logits)
+        pred = (probs > 0.5).float()
+        if pred.shape[1] == 1 and num_classes == 2:
+            pred = torch.cat([1.0 - pred, pred], dim=1)
+        return pred
     pred_labels = torch.argmax(logits, dim=1, keepdim=True)
     return torch.nn.functional.one_hot(
         pred_labels.squeeze(1), num_classes=num_classes
@@ -338,9 +344,11 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = build_model(cfg, num_classes).to(device)
 
+    is_binary = data_cfg["label_mode"] == "binary"
     loss_fn = DiceCELoss(
         to_onehot_y=False,
-        softmax=True,
+        softmax=not is_binary,
+        sigmoid=is_binary,
         include_background=False,
     )
     optimizer = torch.optim.Adam(model.parameters(), lr=cfg["training"]["learning_rate"])
@@ -427,7 +435,7 @@ def main():
                 train_loss += loss.item()
                 batch_count += 1
                 total_batches += 1
-                preds = _pred_to_onehot(logits, num_classes)
+                preds = _pred_to_onehot(logits, num_classes, is_binary)
                 if _foreground_mask(labels).any():
                     pos_batches += 1
                     pos_tumor_fracs.append(_foreground_mask(labels).float().mean().item())
@@ -475,7 +483,7 @@ def main():
                     logits = model(images)
                     val_loss += loss_fn(logits, labels).item()
                     val_batches += 1
-                    preds = _pred_to_onehot(logits, num_classes)
+                    preds = _pred_to_onehot(logits, num_classes, is_binary)
                     if debug_shapes and val_idx == 0:
                         logger.info(
                             "val shapes | images=%s labels=%s logits=%s preds=%s",
