@@ -1383,7 +1383,9 @@ if __name__ == "__main__":
 --- src/eval_3d.py ---
 import argparse
 import json
+import logging
 import subprocess
+import time
 from pathlib import Path
 from typing import Dict, List, Tuple
 
@@ -1462,6 +1464,17 @@ def _compute_dice(pred: torch.Tensor, target: torch.Tensor, include_background: 
     return dice.mean(dim=0)
 
 
+def setup_logging():
+    logger = logging.getLogger("eval_3d")
+    logger.setLevel(logging.INFO)
+    if not logger.handlers:
+        handler = logging.StreamHandler()
+        formatter = logging.Formatter("%(asctime)s | %(levelname)s | %(message)s")
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+    return logger
+
+
 def evaluate_split(
     model: torch.nn.Module,
     dataset: torch.utils.data.Dataset,
@@ -1470,12 +1483,16 @@ def evaluate_split(
     overlap: float,
     sw_batch_size: int,
     num_classes: int,
+    logger: logging.Logger,
+    split_name: str,
+    log_interval: int = 1,
 ) -> Tuple[List[float], int]:
     model.eval()
 
     dice_scores = []
     with torch.no_grad():
-        for image, label in dataset:
+        start_time = time.perf_counter()
+        for idx, (image, label) in enumerate(dataset, start=1):
             image = image.unsqueeze(0).to(device)
             label = label.unsqueeze(0).to(device)
             logits = sliding_window_inference(
@@ -1487,6 +1504,15 @@ def evaluate_split(
             ).permute(0, 4, 1, 2, 3).float()
             dice = _compute_dice(pred, label, include_background=True)
             dice_scores.append(dice.cpu().numpy())
+            if log_interval and idx % log_interval == 0:
+                elapsed = time.perf_counter() - start_time
+                logger.info(
+                    "%s volume %s/%s | avg_time=%.2fs",
+                    split_name,
+                    idx,
+                    len(dataset),
+                    elapsed / idx,
+                )
 
     if not dice_scores:
         return [0.0] * num_classes, 0
@@ -1543,11 +1569,16 @@ def main():
     overlap = inference_cfg["overlap"]
     sw_batch_size = inference_cfg["sw_batch_size"]
 
+    logger = setup_logging()
+    logger.info("Using device: %s", device)
+    logger.info("ROI size: %s | overlap: %s | sw_batch_size: %s", roi_size, overlap, sw_batch_size)
+    logger.info("Val volumes: %s | Test volumes: %s", len(val_dataset), len(test_dataset))
+
     val_dice, val_count = evaluate_split(
-        model, val_dataset, device, roi_size, overlap, sw_batch_size, num_classes
+        model, val_dataset, device, roi_size, overlap, sw_batch_size, num_classes, logger, "val"
     )
     test_dice, test_count = evaluate_split(
-        model, test_dataset, device, roi_size, overlap, sw_batch_size, num_classes
+        model, test_dataset, device, roi_size, overlap, sw_batch_size, num_classes, logger, "test"
     )
 
     class_names = data_cfg.get("class_names", [f"class_{i}" for i in range(num_classes)])
