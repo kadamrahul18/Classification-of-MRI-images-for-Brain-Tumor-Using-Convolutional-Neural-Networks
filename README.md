@@ -41,14 +41,11 @@ python scripts/make_readme_figures.py --run-dir outputs/runs/<run_id>
 
 ## Results — Baseline v1.0.0
 
-**Note:** Fill the table after running the baseline script (it writes `outputs/baseline_metrics.json`).  
 The baseline config uses **limited epochs/batches** to keep runtime under ~2 hours on a V100.
 
 | GPU | ROI | Epochs | Best Epoch | Tumor Dice | Foreground Dice | Dataset Split |
 | --- | --- | ------ | ---------- | ---------- | ---------------- | ------------- |
-| TBD | 96³ | 20 | TBD | TBD | TBD | 70/20/10 |
-
-Figures below are placeholders until you run `scripts/make_readme_figures.py`.
+| Tesla V100-SXM2-16GB | 96³ | 20 | 19 | 0.2816 | 0.2816 | 70/20/10 |
 
 ![Baseline Examples](docs/assets/baseline_examples.png)
 ![Baseline Curves](docs/assets/baseline_curves.png)
