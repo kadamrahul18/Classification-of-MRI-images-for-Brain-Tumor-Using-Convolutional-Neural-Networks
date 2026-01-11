@@ -27,11 +27,7 @@ dist/
 .pytest_cache/
 
 # TensorBoard / checkpoints / outputs
-outputs/
-outputs/runs/
-outputs/baseline_v1/
-outputs/baseline_metrics.json
-outputs/metrics_3d.json
+outputs/runs/*/best.pt
 brain-tumor-run/
 logs/
 

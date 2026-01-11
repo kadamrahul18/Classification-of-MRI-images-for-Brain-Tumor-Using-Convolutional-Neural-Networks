@@ -1,0 +1,39 @@
+{
+  "dataset_format": "msd_task01",
+  "label_mode": "binary",
+  "val": {
+    "dice_per_class": {
+      "background": 0.98722887346425,
+      "tumor": 0.016988756025741694
+    },
+    "mean_dice": 0.5021088147449959,
+    "foreground_mean_dice": 0.016988756025741694,
+    "dice_background": 0.98722887346425,
+    "dice_tumor": 0.016988756025741694,
+    "number_of_volumes": 97
+  },
+  "test": {
+    "dice_per_class": {
+      "background": 0.9879584555723229,
+      "tumor": 0.023572556937305846
+    },
+    "mean_dice": 0.5057655062548143,
+    "foreground_mean_dice": 0.023572556937305846,
+    "dice_background": 0.9879584555723229,
+    "dice_tumor": 0.023572556937305846,
+    "number_of_volumes": 49
+  },
+  "inference": {
+    "roi_size": [
+      96,
+      96,
+      96
+    ],
+    "overlap": 0.5,
+    "sw_batch_size": 2,
+    "include_background": true,
+    "ignore_empty_foreground": true,
+    "pred_rule": "sigmoid>0.5"
+  },
+  "git_commit": "94bbd68"
+}

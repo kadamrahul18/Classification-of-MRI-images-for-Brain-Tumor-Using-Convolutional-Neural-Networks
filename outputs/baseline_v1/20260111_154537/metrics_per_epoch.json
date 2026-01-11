@@ -1,0 +1,422 @@
+[
+  {
+    "epoch": 1,
+    "train_loss": 1.804617980480194,
+    "val_loss": 1.809579575061798,
+    "val_mean_dice": 0.33717746257781983,
+    "val_foreground_dice": 0.06921386545582209,
+    "val_dice_per_class": [
+      0.635595155954361,
+      0.06921386545582209
+    ],
+    "val_dice_background": 0.635595155954361,
+    "val_dice_tumor": 0.06921386545582209,
+    "lr": 0.0001,
+    "ignore_empty_foreground": true,
+    "include_background": true,
+    "pred_rule": "argmax over softmax logits",
+    "class_names": [
+      "background",
+      "tumor"
+    ]
+  },
+  {
+    "epoch": 2,
+    "train_loss": 1.6479155039787292,
+    "val_loss": 1.7481150078773497,
+    "val_mean_dice": 0.4191851818561554,
+    "val_foreground_dice": 0.09959770811044356,
+    "val_dice_per_class": [
+      0.7945473730564118,
+      0.09959770811044356
+    ],
+    "val_dice_background": 0.7945473730564118,
+    "val_dice_tumor": 0.09959770811044356,
+    "lr": 0.0001,
+    "ignore_empty_foreground": true,
+    "include_background": true,
+    "pred_rule": "argmax over softmax logits",
+    "class_names": [
+      "background",
+      "tumor"
+    ]
+  },
+  {
+    "epoch": 3,
+    "train_loss": 1.5338392219543457,
+    "val_loss": 1.691923563480377,
+    "val_mean_dice": 0.4410399258136749,
+    "val_foreground_dice": 0.09475686833919157,
+    "val_dice_per_class": [
+      0.823330591917038,
+      0.09475686833919157
+    ],
+    "val_dice_background": 0.823330591917038,
+    "val_dice_tumor": 0.09475686833919157,
+    "lr": 0.0001,
+    "ignore_empty_foreground": true,
+    "include_background": true,
+    "pred_rule": "argmax over softmax logits",
+    "class_names": [
+      "background",
+      "tumor"
+    ]
+  },
+  {
+    "epoch": 4,
+    "train_loss": 1.439286849975586,
+    "val_loss": 1.6401302647590636,
+    "val_mean_dice": 0.44729161739349366,
+    "val_foreground_dice": 0.07932097819459025,
+    "val_dice_per_class": [
+      0.8517499053478241,
+      0.07932097819459025
+    ],
+    "val_dice_background": 0.8517499053478241,
+    "val_dice_tumor": 0.07932097819459025,
+    "lr": 0.0001,
+    "ignore_empty_foreground": true,
+    "include_background": true,
+    "pred_rule": "argmax over softmax logits",
+    "class_names": [
+      "background",
+      "tumor"
+    ]
+  },
+  {
+    "epoch": 5,
+    "train_loss": 1.4233003630638124,
+    "val_loss": 1.574749126434326,
+    "val_mean_dice": 0.44335984528064726,
+    "val_foreground_dice": 0.08752848583587063,
+    "val_dice_per_class": [
+      0.8447060132026672,
+      0.08752848583587063
+    ],
+    "val_dice_background": 0.8447060132026672,
+    "val_dice_tumor": 0.08752848583587063,
+    "lr": 0.0001,
+    "ignore_empty_foreground": true,
+    "include_background": true,
+    "pred_rule": "argmax over softmax logits",
+    "class_names": [
+      "background",
+      "tumor"
+    ]
+  },
+  {
+    "epoch": 6,
+    "train_loss": 1.35212952709198,
+    "val_loss": 1.5548641729354857,
+    "val_mean_dice": 0.46225647151470184,
+    "val_foreground_dice": 0.10022668323155678,
+    "val_dice_per_class": [
+      0.8703905320167542,
+      0.10022668323155678
+    ],
+    "val_dice_background": 0.8703905320167542,
+    "val_dice_tumor": 0.10022668323155678,
+    "lr": 0.0001,
+    "ignore_empty_foreground": true,
+    "include_background": true,
+    "pred_rule": "argmax over softmax logits",
+    "class_names": [
+      "background",
+      "tumor"
+    ]
+  },
+  {
+    "epoch": 7,
+    "train_loss": 1.3117529258728027,
+    "val_loss": 1.5050909090042115,
+    "val_mean_dice": 0.46009465992450715,
+    "val_foreground_dice": 0.1329657798907849,
+    "val_dice_per_class": [
+      0.8723216390609742,
+      0.1329657798907849
+    ],
+    "val_dice_background": 0.8723216390609742,
+    "val_dice_tumor": 0.1329657798907849,
+    "lr": 0.0001,
+    "ignore_empty_foreground": true,
+    "include_background": true,
+    "pred_rule": "argmax over softmax logits",
+    "class_names": [
+      "background",
+      "tumor"
+    ]
+  },
+  {
+    "epoch": 8,
+    "train_loss": 1.2854572594165803,
+    "val_loss": 1.4999022197723388,
+    "val_mean_dice": 0.48097169160842895,
+    "val_foreground_dice": 0.12861225873894,
+    "val_dice_per_class": [
+      0.8796315395832062,
+      0.12861225873894
+    ],
+    "val_dice_background": 0.8796315395832062,
+    "val_dice_tumor": 0.12861225873894,
+    "lr": 0.0001,
+    "ignore_empty_foreground": true,
+    "include_background": true,
+    "pred_rule": "argmax over softmax logits",
+    "class_names": [
+      "background",
+      "tumor"
+    ]
+  },
+  {
+    "epoch": 9,
+    "train_loss": 1.2190356347560882,
+    "val_loss": 1.5247501564025878,
+    "val_mean_dice": 0.4644301176071167,
+    "val_foreground_dice": 0.0967411597294914,
+    "val_dice_per_class": [
+      0.8766200077533722,
+      0.0967411597294914
+    ],
+    "val_dice_background": 0.8766200077533722,
+    "val_dice_tumor": 0.0967411597294914,
+    "lr": 0.0001,
+    "ignore_empty_foreground": true,
+    "include_background": true,
+    "pred_rule": "argmax over softmax logits",
+    "class_names": [
+      "background",
+      "tumor"
+    ]
+  },
+  {
+    "epoch": 10,
+    "train_loss": 1.1779632704257965,
+    "val_loss": 1.4630306625366212,
+    "val_mean_dice": 0.46888339042663574,
+    "val_foreground_dice": 0.08638708391420853,
+    "val_dice_per_class": [
+      0.891117752790451,
+      0.08638708391420853
+    ],
+    "val_dice_background": 0.891117752790451,
+    "val_dice_tumor": 0.08638708391420853,
+    "lr": 0.0001,
+    "ignore_empty_foreground": true,
+    "include_background": true,
+    "pred_rule": "argmax over softmax logits",
+    "class_names": [
+      "background",
+      "tumor"
+    ]
+  },
+  {
+    "epoch": 11,
+    "train_loss": 1.142837985277176,
+    "val_loss": 1.3615574550628662,
+    "val_mean_dice": 0.5094544798135757,
+    "val_foreground_dice": 0.1730924388374983,
+    "val_dice_per_class": [
+      0.9115916478633881,
+      0.1730924388374983
+    ],
+    "val_dice_background": 0.9115916478633881,
+    "val_dice_tumor": 0.1730924388374983,
+    "lr": 0.0001,
+    "ignore_empty_foreground": true,
+    "include_background": true,
+    "pred_rule": "argmax over softmax logits",
+    "class_names": [
+      "background",
+      "tumor"
+    ]
+  },
+  {
+    "epoch": 12,
+    "train_loss": 1.1051985955238341,
+    "val_loss": 1.361706383228302,
+    "val_mean_dice": 0.5063101214170456,
+    "val_foreground_dice": 0.17118202200290397,
+    "val_dice_per_class": [
+      0.9099110269546509,
+      0.17118202200290397
+    ],
+    "val_dice_background": 0.9099110269546509,
+    "val_dice_tumor": 0.17118202200290397,
+    "lr": 0.0001,
+    "ignore_empty_foreground": true,
+    "include_background": true,
+    "pred_rule": "argmax over softmax logits",
+    "class_names": [
+      "background",
+      "tumor"
+    ]
+  },
+  {
+    "epoch": 13,
+    "train_loss": 1.07803541970253,
+    "val_loss": 1.3782066988945008,
+    "val_mean_dice": 0.49208119332790373,
+    "val_foreground_dice": 0.14940423866695104,
+    "val_dice_per_class": [
+      0.9124483513832092,
+      0.14940423866695104
+    ],
+    "val_dice_background": 0.9124483513832092,
+    "val_dice_tumor": 0.14940423866695104,
+    "lr": 0.0001,
+    "ignore_empty_foreground": true,
+    "include_background": true,
+    "pred_rule": "argmax over softmax logits",
+    "class_names": [
+      "background",
+      "tumor"
+    ]
+  },
+  {
+    "epoch": 14,
+    "train_loss": 1.0438917350769044,
+    "val_loss": 1.330910118818283,
+    "val_mean_dice": 0.5068700182437896,
+    "val_foreground_dice": 0.18326893295670743,
+    "val_dice_per_class": [
+      0.9257709491252899,
+      0.18326893295670743
+    ],
+    "val_dice_background": 0.9257709491252899,
+    "val_dice_tumor": 0.18326893295670743,
+    "lr": 0.0001,
+    "ignore_empty_foreground": true,
+    "include_background": true,
+    "pred_rule": "argmax over softmax logits",
+    "class_names": [
+      "background",
+      "tumor"
+    ]
+  },
+  {
+    "epoch": 15,
+    "train_loss": 1.0884918804168702,
+    "val_loss": 1.2584649181365968,
+    "val_mean_dice": 0.5238544768095017,
+    "val_foreground_dice": 0.16854306785346665,
+    "val_dice_per_class": [
+      0.956695692539215,
+      0.16854306785346665
+    ],
+    "val_dice_background": 0.956695692539215,
+    "val_dice_tumor": 0.16854306785346665,
+    "lr": 0.0001,
+    "ignore_empty_foreground": true,
+    "include_background": true,
+    "pred_rule": "argmax over softmax logits",
+    "class_names": [
+      "background",
+      "tumor"
+    ]
+  },
+  {
+    "epoch": 16,
+    "train_loss": 1.0532509520053863,
+    "val_loss": 1.2260815334320068,
+    "val_mean_dice": 0.5348580300807952,
+    "val_foreground_dice": 0.22605915148786151,
+    "val_dice_per_class": [
+      0.9566864860057831,
+      0.22605915148786151
+    ],
+    "val_dice_background": 0.9566864860057831,
+    "val_dice_tumor": 0.22605915148786151,
+    "lr": 0.0001,
+    "ignore_empty_foreground": true,
+    "include_background": true,
+    "pred_rule": "argmax over softmax logits",
+    "class_names": [
+      "background",
+      "tumor"
+    ]
+  },
+  {
+    "epoch": 17,
+    "train_loss": 0.9956852023601532,
+    "val_loss": 1.3266047322750092,
+    "val_mean_dice": 0.534173054099083,
+    "val_foreground_dice": 0.19994129647966474,
+    "val_dice_per_class": [
+      0.9403836798667907,
+      0.19994129647966474
+    ],
+    "val_dice_background": 0.9403836798667907,
+    "val_dice_tumor": 0.19994129647966474,
+    "lr": 0.0001,
+    "ignore_empty_foreground": true,
+    "include_background": true,
+    "pred_rule": "argmax over softmax logits",
+    "class_names": [
+      "background",
+      "tumor"
+    ]
+  },
+  {
+    "epoch": 18,
+    "train_loss": 0.9861232256889343,
+    "val_loss": 1.3136370587348938,
+    "val_mean_dice": 0.5208478999137879,
+    "val_foreground_dice": 0.16726681167992039,
+    "val_dice_per_class": [
+      0.9312997055053711,
+      0.16726681167992039
+    ],
+    "val_dice_background": 0.9312997055053711,
+    "val_dice_tumor": 0.16726681167992039,
+    "lr": 0.0001,
+    "ignore_empty_foreground": true,
+    "include_background": true,
+    "pred_rule": "argmax over softmax logits",
+    "class_names": [
+      "background",
+      "tumor"
+    ]
+  },
+  {
+    "epoch": 19,
+    "train_loss": 0.9287551293373107,
+    "val_loss": 1.223967468738556,
+    "val_mean_dice": 0.5511100041866303,
+    "val_foreground_dice": 0.2815742690649391,
+    "val_dice_per_class": [
+      0.944538414478302,
+      0.2815742690649391
+    ],
+    "val_dice_background": 0.944538414478302,
+    "val_dice_tumor": 0.2815742690649391,
+    "lr": 0.0001,
+    "ignore_empty_foreground": true,
+    "include_background": true,
+    "pred_rule": "argmax over softmax logits",
+    "class_names": [
+      "background",
+      "tumor"
+    ]
+  },
+  {
+    "epoch": 20,
+    "train_loss": 0.9652687962055206,
+    "val_loss": 1.2607442045211792,
+    "val_mean_dice": 0.5253342199325561,
+    "val_foreground_dice": 0.1900008580129137,
+    "val_dice_per_class": [
+      0.9518679964542389,
+      0.1900008580129137
+    ],
+    "val_dice_background": 0.9518679964542389,
+    "val_dice_tumor": 0.1900008580129137,
+    "lr": 0.0001,
+    "ignore_empty_foreground": true,
+    "include_background": true,
+    "pred_rule": "argmax over softmax logits",
+    "class_names": [
+      "background",
+      "tumor"
+    ]
+  }
+]
