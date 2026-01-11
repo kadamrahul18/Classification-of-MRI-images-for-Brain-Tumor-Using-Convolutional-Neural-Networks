@@ -64,6 +64,10 @@ def _ensure_5d(tensor: torch.Tensor, name: str) -> torch.Tensor:
 def _compute_dice(pred: torch.Tensor, target: torch.Tensor, include_background: bool) -> torch.Tensor:
     pred = _ensure_5d(pred, "pred")
     target = _ensure_5d(target, "target")
+    if target.shape[2:] != pred.shape[2:]:
+        raise ValueError(
+            f"Spatial mismatch: pred {tuple(pred.shape)} vs target {tuple(target.shape)}"
+        )
     if target.shape[1] != pred.shape[1]:
         target = torch.argmax(target, dim=1, keepdim=True)
         target = torch.nn.functional.one_hot(
@@ -79,6 +83,26 @@ def _compute_dice(pred: torch.Tensor, target: torch.Tensor, include_background: 
     denom = pred.sum(dim=(2, 3, 4)) + target.sum(dim=(2, 3, 4))
     dice = torch.where(denom > 0, (2.0 * intersection) / denom, torch.ones_like(denom))
     return dice.mean(dim=0)
+
+
+def _align_label_spatial(label: torch.Tensor, pred: torch.Tensor) -> torch.Tensor:
+    if label.shape[2:] == pred.shape[2:]:
+        return label
+    perms = [
+        (2, 3, 4),
+        (2, 4, 3),
+        (3, 2, 4),
+        (3, 4, 2),
+        (4, 2, 3),
+        (4, 3, 2),
+    ]
+    for perm in perms:
+        candidate = label.permute(0, 1, *perm)
+        if candidate.shape[2:] == pred.shape[2:]:
+            return candidate
+    raise ValueError(
+        f"Unable to align label spatial dims {tuple(label.shape)} to pred {tuple(pred.shape)}"
+    )
 
 
 def _foreground_mean(dice_per_class: List[float]) -> float:
@@ -163,6 +187,7 @@ def evaluate_split(
                 pred = torch.nn.functional.one_hot(
                     pred_labels.squeeze(1), num_classes=num_classes
                 ).permute(0, 4, 1, 2, 3).float()
+            label = _align_label_spatial(label, pred)
             dice = _compute_dice(pred, label, include_background=True)
             dice_scores.append(dice.cpu().numpy())
             batch_sum, batch_count = _accumulate_dice(dice, label, num_classes, ignore_empty_foreground)
