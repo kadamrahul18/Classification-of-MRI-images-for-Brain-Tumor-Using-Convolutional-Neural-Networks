@@ -993,12 +993,16 @@ def main():
                     logits = model(images)
                     val_loss += loss_fn(logits, labels).item()
                     val_batches += 1
-                    preds = post_pred(torch.softmax(logits, dim=1))
+                    pred_labels = torch.argmax(logits, dim=1, keepdim=True)
+                    preds = torch.nn.functional.one_hot(
+                        pred_labels.squeeze(1), num_classes=num_classes
+                    ).permute(0, 4, 1, 2, 3).float()
                     if debug_shapes and val_idx == 0:
                         logger.info(
-                            "val shapes | images=%s labels=%s preds=%s",
+                            "val shapes | images=%s labels=%s logits=%s preds=%s",
                             tuple(images.shape),
                             tuple(labels.shape),
+                            tuple(logits.shape),
                             tuple(preds.shape),
                         )
                     dice = compute_dice(preds, labels, include_background=True)
