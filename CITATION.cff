@@ -1,0 +1,8 @@
+cff-version: 1.2.0
+title: "3D Brain Tumor Segmentation (MSD Task01) — Reproducible Baseline"
+message: "If you use this repository, please cite it."
+type: software
+authors:
+  - name: "Rahul Kadam"
+version: "1.0.0"
+date-released: "2026-01-11"

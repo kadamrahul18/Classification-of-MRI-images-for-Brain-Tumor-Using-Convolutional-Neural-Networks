@@ -4,6 +4,8 @@ import json
 import random
 import logging
 import os
+import subprocess
+import sys
 import time
 from datetime import datetime
 from pathlib import Path
@@ -343,6 +345,21 @@ def main():
     run_dir = Path(cfg["training"]["output_dir"]) / datetime.now().strftime("%Y%m%d_%H%M%S")
     run_dir.mkdir(parents=True, exist_ok=True)
     logger = setup_logging(run_dir / "train.log")
+
+    (run_dir / "git_commit.txt").write_text(
+        subprocess.getoutput("git rev-parse --short HEAD").strip() or "unknown",
+        encoding="utf-8",
+    )
+    env_lines = [sys.version.split()[0]]
+    for pkg in ("torch", "monai"):
+        try:
+            mod = __import__(pkg)
+            env_lines.append(f"{pkg}=={getattr(mod, '__version__', 'unknown')}")
+        except Exception:
+            env_lines.append(f"{pkg} not installed")
+    (run_dir / "env.txt").write_text("\n".join(env_lines) + "\n", encoding="utf-8")
+    gpu_info = subprocess.getoutput("nvidia-smi -L") if torch.cuda.is_available() else "cpu"
+    (run_dir / "gpu.txt").write_text(gpu_info + "\n", encoding="utf-8")
 
     with (run_dir / "train_config_resolved.yaml").open("w", encoding="utf-8") as f:
         yaml.safe_dump(cfg, f, sort_keys=False)

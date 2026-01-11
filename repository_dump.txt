@@ -4,21 +4,71 @@ File structure:
 - .github/workflows/ci.yml
 - .gitignore
 - AGENTS.md
+- CHANGELOG.md
+- CITATION.cff
 - Dockerfile
 - README.md
-- brain-tumor-run/config_3d.yaml
-- brain-tumor-run/events.out.tfevents.1768103610.gn-0018.1738568.0
-- brain-tumor-run/gpu.log
+- RELEASE.md
+- brain-tumor-run/.DS_Store
+- brain-tumor-run/best.pt
+- brain-tumor-run/debug_alignment/debug_alignment/gt.png
+- brain-tumor-run/debug_alignment/debug_alignment/input.png
+- brain-tumor-run/debug_alignment/debug_alignment/overlay.png
+- brain-tumor-run/events.out.tfevents.1768149702.gn-0007.489705.0
 - brain-tumor-run/metrics.csv
-- brain-tumor-run/metrics_3d.json
 - brain-tumor-run/train.log
 - brain-tumor-run/train_config_resolved.yaml
+- brain-tumor-run/vis/.DS_Store
+- brain-tumor-run/vis/epoch_10/case_0_gt.png
+- brain-tumor-run/vis/epoch_10/case_0_input.png
+- brain-tumor-run/vis/epoch_10/case_0_overlay.png
+- brain-tumor-run/vis/epoch_10/case_0_pred.png
+- brain-tumor-run/vis/epoch_10/case_1_gt.png
+- brain-tumor-run/vis/epoch_10/case_1_input.png
+- brain-tumor-run/vis/epoch_10/case_1_overlay.png
+- brain-tumor-run/vis/epoch_10/case_1_pred.png
+- brain-tumor-run/vis/epoch_10/case_2_gt.png
+- brain-tumor-run/vis/epoch_10/case_2_input.png
+- brain-tumor-run/vis/epoch_10/case_2_overlay.png
+- brain-tumor-run/vis/epoch_10/case_2_pred.png
+- brain-tumor-run/vis/epoch_20/case_0_gt.png
+- brain-tumor-run/vis/epoch_20/case_0_input.png
+- brain-tumor-run/vis/epoch_20/case_0_overlay.png
+- brain-tumor-run/vis/epoch_20/case_0_pred.png
+- brain-tumor-run/vis/epoch_20/case_1_gt.png
+- brain-tumor-run/vis/epoch_20/case_1_input.png
+- brain-tumor-run/vis/epoch_20/case_1_overlay.png
+- brain-tumor-run/vis/epoch_20/case_1_pred.png
+- brain-tumor-run/vis/epoch_20/case_2_gt.png
+- brain-tumor-run/vis/epoch_20/case_2_input.png
+- brain-tumor-run/vis/epoch_20/case_2_overlay.png
+- brain-tumor-run/vis/epoch_20/case_2_pred.png
+- brain-tumor-run/vis/epoch_30/case_0_gt.png
+- brain-tumor-run/vis/epoch_30/case_0_input.png
+- brain-tumor-run/vis/epoch_30/case_0_overlay.png
+- brain-tumor-run/vis/epoch_30/case_0_pred.png
+- brain-tumor-run/vis/epoch_30/case_1_gt.png
+- brain-tumor-run/vis/epoch_30/case_1_input.png
+- brain-tumor-run/vis/epoch_30/case_1_overlay.png
+- brain-tumor-run/vis/epoch_30/case_1_pred.png
+- brain-tumor-run/vis/epoch_30/case_2_gt.png
+- brain-tumor-run/vis/epoch_30/case_2_input.png
+- brain-tumor-run/vis/epoch_30/case_2_overlay.png
+- brain-tumor-run/vis/epoch_30/case_2_pred.png
 - configs/config.yaml
 - configs/config_3d.yaml
+- configs/config_3d_baseline.yaml
+- docs/assets/baseline_curves.png
+- docs/assets/baseline_examples.png
 - repository_dump.txt
 - requirements-3d.txt
 - requirements.txt
+- scripts/debug_alignment.py
+- scripts/debug_label_permutation.py
 - scripts/download_msd_task01.py
+- scripts/make_readme_figures.py
+- scripts/run_baseline_3d.sh
+- scripts/summarize_run.py
 - src/.DS_Store
 - src/__init__.py
 - src/data/__init__.py
@@ -177,6 +227,25 @@ smoke_dataset/
 - All runtime parameters live in `configs/config.yaml`; prefer config changes over hard-coded values.
 - Model outputs and logs default to `./outputs/` (see `training` config). Keep large artifacts out of git.
 
+--- CHANGELOG.md ---
+# Changelog
+
+## v1.0.0
+- 3D MSD Task01 pipeline with alignment checks and robust metrics.
+- Baseline run tooling: `scripts/run_baseline_3d.sh`, run summarization, README figures.
+- Reproducibility artifacts (resolved config, env/gpu capture, metrics history).
+- 2D pipeline retained for comparison.
+
+--- CITATION.cff ---
+cff-version: 1.2.0
+title: "3D Brain Tumor Segmentation (MSD Task01) — Reproducible Baseline"
+message: "If you use this repository, please cite it."
+type: software
+authors:
+  - name: "Rahul Kadam"
+version: "1.0.0"
+date-released: "2026-01-11"
+
 --- Dockerfile ---
 # Lightweight production image for FastAPI inference
 FROM python:3.9-slim
@@ -207,741 +276,538 @@ EXPOSE 8080
 CMD ["uvicorn", "src.service.api:app", "--host", "0.0.0.0", "--port", "8080"]
 
 --- README.md ---
-# Brain Tumor Segmentation Pipeline (MSD Task01 + BraTS-compatible)
+# 3D Brain Tumor Segmentation (MSD Task01) — Reproducible Baseline
 
-![Banner](https://img.shields.io/badge/Focus-Medical_Imaging-red)
-[![Python](https://img.shields.io/badge/Python-3.9%2B-blue.svg)](https://www.python.org/)
-[![TensorFlow](https://img.shields.io/badge/TensorFlow-2.x-orange.svg)](https://www.tensorflow.org/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.68%2B-009688.svg)](https://fastapi.tiangolo.com/)
-[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg)](https://www.docker.com/)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+An end-to-end medical imaging pipeline for 3D brain tumor segmentation with strong correctness checks, reproducible configs, and GPU-ready training/evaluation.
 
-> **An end-to-end MLOps pipeline for automating Glioma segmentation from multi-modal MRI scans.**
+## What This Repo Demonstrates
+- **Data pipeline rigor**: NIfTI loading, modality normalization, ROI sampling safeguards, and label alignment checks.
+- **Training correctness**: per-class Dice, foreground Dice (ignoring empty tumor), tumor-based checkpointing.
+- **Reproducibility**: resolved configs, environment capture, and deterministic-ish runs.
+- **Engineering hygiene**: scripts, structured outputs, and clear metrics artifacts.
 
-## 📋 Table of Contents
-- [Project Overview](#-project-overview)
-- [System Architecture](#-system-architecture)
-- [Key Features](#-key-features)
-- [Project Structure](#-project-structure)
-- [Installation & Setup](#-installation--setup)
-- [Usage (Training)](#-usage-training)
-- [Quick Demo](#-quick-demo)
-- [Deployment (Docker & Vertex AI)](#-deployment-docker--vertex-ai)
-- [Results](#-results)
+## Quickstart (Baseline v1.0.0)
 
----
-
-## 🏥 Project Overview
-Glioma segmentation is a critical step in surgical planning and longitudinal tumor tracking. Manual delineation by radiologists is time-consuming and subject to inter-observer variability.
-
-This project implements a production-grade Deep Learning pipeline to automate this process. Using the **MSD Task01_BrainTumour dataset** (and compatible BraTS layouts), it processes four MRI modalities (T1, T1ce, T2, FLAIR) to predict segmentation masks for tumor sub-regions. The system is engineered for scalability, featuring a modular codebase, containerized inference, and cloud deployment capabilities.
-
-## 🏗 System Architecture
-
-```mermaid
-graph TD
-    A["NIfTI Volumes<br/>(T1, T1ce, T2, FLAIR)"] --> B["Preprocessing<br/>(N4 Bias Correction & Normalization)"]
-    B --> C["Data Augmentation<br/>(Albumentations)"]
-    C --> D["U-Net Model<br/>(TensorFlow/Keras)"]
-    D --> E["Inference API<br/>(FastAPI)"]
-    E --> F["Output<br/>Segmentation Mask"]
-    style D fill:#f9f,stroke:#333,stroke-width:2px
-    style E fill:#bbf,stroke:#333,stroke-width:2px
-```
-
-## ✨ Key Features
-- **Advanced Preprocessing:** Implements **N4 Bias Field Correction** using SimpleITK to remove RF inhomogeneity artifacts, essential for consistent MRI analysis.
-- **Custom U-Net Architecture:** Deep CNN with encoder-decoder paths tailored for semantic segmentation of medical images.
-- **Hybrid Loss Function:** Combines **Soft Dice Loss** and **Categorical Crossentropy** to handle extreme class imbalance (small tumor regions vs. large background).
-- **Production Engineering:**
-    - Modular `src/` layout with separated concerns (data, modeling, training, service).
-    - **FastAPI** microservice for real-time inference.
-    - **Dockerized** environment optimized with `.dockerignore` and `opencv-python-headless`.
-
-## 📂 Project Structure
-```text
-brain-tumor-segmentation/
-├── configs/               # YAML configuration files
-├── src/
-│   ├── data/              # Data loading, bias correction, and augmentation
-│   ├── models/            # U-Net architecture definition
-│   ├── service/           # FastAPI application logic
-│   ├── training/          # Training loops and callbacks
-│   └── utils/             # Helper functions and config parsers
-├── weights/               # Saved model checkpoints (gitignored)
-├── Dockerfile             # Production container definition
-├── requirements.txt       # Python dependencies
-├── train.py               # Training entry point
-└── README.md              # Project documentation
-```
-
-## ⚙️ Installation & Setup
-
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/kadamrahul18/Classification-of-MRI-images-for-Brain-Tumor-Using-Convolutional-Neural-Networks.git
-   cd Classification-of-MRI-images-for-Brain-Tumor-Using-Convolutional-Neural-Networks
-   ```
-
-2. **Create a virtual environment:**
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
-
-3. **Install dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-## 🚀 3D Pipeline (Recommended)
-
-Install 3D dependencies:
+### 1) Create environment
 ```bash
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
 pip install -r requirements-3d.txt
 ```
 
-**1. Download the Data (MSD Task01):**
+### 2) Download dataset
 ```bash
 python scripts/download_msd_task01.py
 ```
 
-**2. Train 3D U-Net:**
+### 3) Run baseline (single GPU)
 ```bash
-python -m src.train_3d --config configs/config_3d.yaml
+bash scripts/run_baseline_3d.sh
 ```
 
-**3. Evaluate 3D U-Net:**
+The script:
+- Trains with `configs/config_3d_baseline.yaml`
+- Evaluates the best checkpoint
+- Copies artifacts into `outputs/baseline_v1/<timestamp>/`
+
+Generate summary + figures:
 ```bash
-python -m src.eval_3d --config configs/config_3d.yaml --weights outputs/runs/<timestamp>/best.pt
-```
-This writes `outputs/metrics_3d.json`.
-
-Example output format (placeholder until you run it):
-```json
-{
-  "dataset_format": "msd_task01",
-  "label_mode": "binary",
-  "val": { "dice_per_class": { "background": null }, "mean_dice": null },
-  "test": { "dice_per_class": { "background": null }, "mean_dice": null }
-}
+python scripts/summarize_run.py --run-dir outputs/runs/<run_id>
+python scripts/make_readme_figures.py --run-dir outputs/runs/<run_id>
 ```
 
-## 📈 Monitoring
-Launch TensorBoard:
+## Results — Baseline v1.0.0
+
+**Note:** Fill the table after running the baseline script (it writes `outputs/baseline_metrics.json`).  
+The baseline config uses **limited epochs/batches** to keep runtime under ~2 hours on a V100.
+
+| GPU | ROI | Epochs | Best Epoch | Tumor Dice | Foreground Dice | Dataset Split |
+| --- | --- | ------ | ---------- | ---------- | ---------------- | ------------- |
+| TBD | 96³ | 20 | TBD | TBD | TBD | 70/20/10 |
+
+Figures below are placeholders until you run `scripts/make_readme_figures.py`.
+
+![Baseline Examples](docs/assets/baseline_examples.png)
+![Baseline Curves](docs/assets/baseline_curves.png)
+
+## Monitoring
 ```bash
 tensorboard --logdir outputs/runs
 ```
-Logged scalars include `loss/train`, `loss/val`, `dice_mean/val`, `lr`, and `gpu_mem_max_mb` (when CUDA is available).
-Every `vis_interval` epochs, the run also writes `vis/epoch_XX/` PNGs (input/gt/pred/overlay) and logs overlay grids to TensorBoard.
+Logged scalars include loss, per-class Dice, foreground Dice, LR, and GPU memory. Visual overlays are saved every `vis_interval` epochs.
 
-## ⚡ Speed tuning (V100)
-- Reduce ROI size (`96^3`) to improve throughput; larger ROI improves context but slows training.
-- Increase `training.num_workers` (start at 8 on 16 CPUs) to reduce data loading stalls.
-- Recommended CPU thread caps:
-  ```bash
-  export OMP_NUM_THREADS=1
-  export MKL_NUM_THREADS=1
-  ```
-- Monitor GPU utilization:
-  ```bash
-  nvidia-smi -l 1
-  ```
-
-## 🚀 2D Baseline (Optional)
-
-**1. Prepare the Data:**
-Download MSD Task01_BrainTumour and convert NIfTI volumes into PNG slices.
+## 2D Baseline (Optional)
+The original 2D slice pipeline remains available for comparison.
 ```bash
-python scripts/download_msd_task01.py
-python -m src.data.prepare_slices \
-  --dataset-format msd_task01 \
-  --dataset-root data/raw/msd_task01/Task01_BrainTumour \
-  --output-root ./Dataset \
-  --slices-per-volume 20 \
-  --channel flair \
-  --label-mode binary
-```
-
-BraTS-compatible input is still supported:
-```bash
-python -m src.data.prepare_slices \
-  --dataset-format brats \
-  --dataset-root /path/to/brats_data \
-  --output-root ./Dataset
-```
-
-**2. Run Training:**
-Start the training loop using the configuration file.
-```bash
+python -m src.data.prepare_slices --dataset-format msd_task01 --dataset-root ./data/raw/msd_task01/Task01_BrainTumour --output-root ./Dataset
 python train.py --config configs/config.yaml --epochs 20
 ```
-*Artifacts (logs and weights) will be saved to `./outputs/`.*
 
-## ⚡ Quick Demo
-Run the API locally, upload a PNG slice, and save the predicted mask.
+## Known Limitations / Next Improvements
+- Longer training schedules and LR scheduling.
+- Augmentations (3D flips/rotations/intensity jitter).
+- Multiclass tumor labels (enhancing vs non-enhancing).
+- Larger ROI for more context (if GPU memory allows).
 
+## Serving (Local)
+The FastAPI service supports **2D PNG inference** for quick demos:
 ```bash
 uvicorn src.service.api:app --host 0.0.0.0 --port 8080
 curl -F "file=@example.png" http://localhost:8080/predict -o mask.png
 ```
 
-## 🐳 Deployment (Docker & Vertex AI)
+## Metric Conventions (3D)
+- **Per-class Dice** is always reported (background + tumor).
+- **Foreground Dice** ignores empty‑tumor patches/volumes.
+- **Best checkpoint** is selected by tumor/foreground Dice (not background mean).
 
-The application is containerized for easy deployment. For multipart file uploads (`/predict`), Cloud Run is the simplest target.
+--- RELEASE.md ---
+# Release Checklist (v1.0.0)
 
-**1. Build the Docker Image:**
-```bash
-docker build -t brain-seg:latest .
-```
+1) Run baseline:
+   ```bash
+   bash scripts/run_baseline_3d.sh
+   ```
+2) Summarize + figures:
+   ```bash
+   python scripts/summarize_run.py --run-dir outputs/runs/<run_id>
+   python scripts/make_readme_figures.py --run-dir outputs/runs/<run_id>
+   ```
+3) Verify artifacts:
+   - `outputs/baseline_v1/<timestamp>/` contains config, metrics, logs, and checkpoint.
+   - `docs/assets/baseline_examples.png` and `docs/assets/baseline_curves.png` updated.
+4) Update README table with values from `outputs/baseline_metrics.json`.
+5) Tag and release:
+   ```bash
+   git tag -a v1.0.0 -m "v1.0.0 baseline"
+   git push origin v1.0.0
+   ```
+6) Create GitHub Release notes (copy from CHANGELOG).
 
-**2. Run Locally:**
-```bash
-docker run -p 8080:8080 brain-seg:latest
-```
-
-**3. API Documentation:**
-Once running, navigate to `http://localhost:8080/docs` to interact with the Swagger UI.
-
-*   **Endpoint:** `POST /predict`
-*   **Input:** Single MRI slice (PNG/JPG)
-*   **Output:** Segmentation mask (PNG)
-
-**Vertex AI custom container usage:**
-Vertex AI requires JSON requests; use `POST /vertex/predict` with base64-encoded bytes.
-```bash
-curl -X POST "http://localhost:8080/vertex/predict" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "instances": [
-      {
-        "b64": "'"$(base64 -i /path/to/slice.png)"'"
-      }
-    ]
-  }'
-```
-
-## 📊 Results
-3D evaluation writes per-class Dice scores and mean Dice to `outputs/metrics_3d.json`.
-2D evaluation writes to `outputs/metrics.json`.
-Per-epoch training metrics (including per-class Dice) are saved to `outputs/runs/<run>/metrics_per_epoch.json`.
-
-Example output format (placeholder until you run it):
-```json
-{
-  "dataset_format": "msd_task01",
-  "label_mode": "binary",
-  "val": {
-    "dice_per_class": { "background": null, "tumor": null },
-    "mean_dice": null,
-    "foreground_mean_dice": null
-  },
-  "test": {
-    "dice_per_class": { "background": null, "tumor": null },
-    "mean_dice": null,
-    "foreground_mean_dice": null
-  }
-}
-```
-
-**Assumptions:**
-- MSD Task01 channel order is assumed to be `[t1, t1ce, t2, flair]` when selecting `--channel`.
-- For binary masks, update `configs/config.yaml` to use two classes (e.g., `class_names: [background, tumor]`).
- - Volume inference via API is not implemented yet. TODO: add a NIfTI endpoint for 3D inference.
-
-**Metric conventions (3D):**
-- Per-class Dice is always reported (including background).
-- Foreground/tumor Dice ignores empty-ground-truth volumes/patches (`ignore_empty_foreground: true` by default).
-- Best checkpoint selection uses foreground Dice (not background-inflated mean).
-
---- brain-tumor-run/config_3d.yaml ---
-# 3D pipeline configuration for MSD Task01_BrainTumour
-
-data:
-  root: ./data/raw/msd_task01/Task01_BrainTumour
-  train_ratio: 0.7
-  val_ratio: 0.2
-  seed: 42
-  list_files:
-    train: null
-    val: null
-    test: null
-  label_mode: binary
-  class_names: [background, tumor]
-  roi_size: [96, 96, 96]
-  pos_ratio: 0.7
-  percentiles: [0.5, 99.5]
-
-model:
-  in_channels: 4
-  channels: [16, 32, 64, 128, 128]
-  strides: [2, 2, 2, 2]
-  num_res_units: 1
-  norm: instance
-
-training:
-  batch_size: 1
-  learning_rate: 0.0001
-  max_epochs: 30
-  num_workers: 8
-  seed: 42
-  deterministic: false
-  output_dir: ./outputs/runs
-  limit_train_batches: 150
-  limit_val_batches: 20
-  log_interval: 20
-  vis_interval: 10
-  max_vis_cases: 3
-  debug_shapes: true
-
-inference:
-  roi_size: [96, 96, 96]
-  overlap: 0.5
-  sw_batch_size: 2
-
---- brain-tumor-run/events.out.tfevents.1768103610.gn-0018.1738568.0 ---
+--- brain-tumor-run/.DS_Store ---
 (binary file, contents omitted)
 
---- brain-tumor-run/gpu.log ---
-(file too large, contents omitted)
+--- brain-tumor-run/best.pt ---
+(binary file, contents omitted)
+
+--- brain-tumor-run/debug_alignment/debug_alignment/gt.png ---
+(binary file, contents omitted)
+
+--- brain-tumor-run/debug_alignment/debug_alignment/input.png ---
+(binary file, contents omitted)
+
+--- brain-tumor-run/debug_alignment/debug_alignment/overlay.png ---
+(binary file, contents omitted)
+
+--- brain-tumor-run/events.out.tfevents.1768149702.gn-0007.489705.0 ---
+(binary file, contents omitted)
 
 --- brain-tumor-run/metrics.csv ---
 epoch,train_loss,val_mean_dice
-1,1.178670,0.497255
-2,0.966799,0.512311
-3,0.841352,0.498570
-4,0.778068,0.496173
-5,0.723302,0.505816
-6,0.735004,0.489569
-7,0.714155,0.496486
-8,0.701073,0.589019
-9,0.684198,0.486185
-10,0.678491,0.486257
-11,0.688577,0.520493
-12,0.703880,0.489607
-13,0.692931,0.483310
-14,0.695144,0.506299
-15,0.658085,0.506511
-16,0.683575,0.494196
-17,0.701025,0.497495
-18,0.671189,0.489324
-19,0.679959,0.541143
-20,0.671052,0.494458
-21,0.652322,0.487713
-22,0.685016,0.501709
-23,0.660768,0.521961
-24,0.678429,0.493501
-25,0.646240,0.539836
-26,0.660751,0.491876
-27,0.678332,0.486891
-28,0.619336,0.489789
-29,0.635796,0.492554
-30,0.663820,0.497571
-
---- brain-tumor-run/metrics_3d.json ---
-{
-  "dataset_format": "msd_task01",
-  "label_mode": "binary",
-  "val": {
-    "dice_per_class": {
-      "background": 0.9940678477287292,
-      "tumor": 0.0030312025919556618
-    },
-    "mean_dice": 0.49854952516034245,
-    "number_of_volumes": 97
-  },
-  "test": {
-    "dice_per_class": {
-      "background": 0.9943698048591614,
-      "tumor": 0.001986186718568206
-    },
-    "mean_dice": 0.4981779957888648,
-    "number_of_volumes": 49
-  },
-  "inference": {
-    "roi_size": [
-      96,
-      96,
-      96
-    ],
-    "overlap": 0.5,
-    "sw_batch_size": 2
-  },
-  "git_commit": "b0ac980"
-}
+1,1.178697,0.497266
+2,0.966853,0.512520
+3,0.840498,0.497801
+4,0.778061,0.495862
+5,0.723662,0.505168
+6,0.734608,0.490460
+7,0.714020,0.495984
+8,0.701632,0.538606
+9,0.679306,0.485429
+10,0.678196,0.485926
+11,0.689624,0.519951
+12,0.703393,0.489391
+13,0.692408,0.483383
+14,0.695116,0.507068
+15,0.658095,0.507900
+16,0.683139,0.493844
+17,0.701470,0.497138
+18,0.669604,0.489056
+19,0.679629,0.543669
+20,0.671967,0.497269
+21,0.651492,0.488529
+22,0.684753,0.502255
+23,0.660792,0.521872
+24,0.677968,0.493707
+25,0.646056,0.539977
+26,0.660332,0.491729
+27,0.677697,0.486315
+28,0.619556,0.489235
+29,0.636760,0.492267
+30,0.665174,0.500275
 
 --- brain-tumor-run/train.log ---
-2026-01-10 22:53:30,257 | INFO | Train batches per epoch: 338 | Val batches: 97
-2026-01-10 22:53:30,257 | INFO | Using device: cuda
-2026-01-10 22:53:30,258 | INFO | ROI size: [96, 96, 96]
-2026-01-10 22:53:30,258 | INFO | num_workers: 8
-2026-01-10 22:53:30,258 | INFO | limit_train_batches: 150 | limit_val_batches: 20
-2026-01-10 22:53:30,258 | INFO | GPU name: Tesla V100-SXM2-16GB
-2026-01-10 22:53:30,258 | INFO | CUDA capability: (7, 0)
-2026-01-10 22:53:30,259 | INFO | AMP enabled: True
-2026-01-10 22:53:30,259 | WARNING | For best throughput set: OMP_NUM_THREADS=1 and MKL_NUM_THREADS=1
-2026-01-10 22:53:30,261 | INFO | Epoch 1/30
-2026-01-10 22:53:32,722 | INFO |   train step 1/338 loss=1.4284 avg_step=0.480s
-2026-01-10 22:53:35,781 | INFO |   train step 21/338 loss=1.2677 avg_step=0.016s
-2026-01-10 22:53:40,911 | INFO |   train step 41/338 loss=1.2469 avg_step=0.016s
-2026-01-10 22:53:44,537 | INFO |   train step 61/338 loss=1.2062 avg_step=0.015s
-2026-01-10 22:53:49,646 | INFO |   train step 81/338 loss=1.1738 avg_step=0.015s
-2026-01-10 22:53:53,264 | INFO |   train step 101/338 loss=1.1428 avg_step=0.015s
-2026-01-10 22:53:58,340 | INFO |   train step 121/338 loss=1.1226 avg_step=0.015s
-2026-01-10 22:54:01,956 | INFO |   train step 141/338 loss=1.0668 avg_step=0.015s
-2026-01-10 22:54:06,115 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
-2026-01-10 22:54:06,161 | INFO |   val step 1/97 mean_dice=0.4854
-2026-01-10 22:54:09,846 | INFO | Epoch 1 summary | train_loss=1.1787 val_loss=1.0676 val_mean_dice=0.4973 lr=0.000100 gpu_mem_max_mb=142.8
-2026-01-10 22:54:09,876 | INFO | Epoch 2/30
-2026-01-10 22:54:12,069 | INFO |   train step 1/338 loss=1.0524 avg_step=0.020s
-2026-01-10 22:54:15,820 | INFO |   train step 21/338 loss=1.0456 avg_step=0.015s
-2026-01-10 22:54:20,953 | INFO |   train step 41/338 loss=0.9758 avg_step=0.015s
-2026-01-10 22:54:24,599 | INFO |   train step 61/338 loss=0.9738 avg_step=0.015s
-2026-01-10 22:54:29,772 | INFO |   train step 81/338 loss=0.9550 avg_step=0.015s
-2026-01-10 22:54:33,272 | INFO |   train step 101/338 loss=0.9894 avg_step=0.015s
-2026-01-10 22:54:38,457 | INFO |   train step 121/338 loss=0.9139 avg_step=0.015s
-2026-01-10 22:54:41,970 | INFO |   train step 141/338 loss=0.9822 avg_step=0.015s
-2026-01-10 22:54:45,930 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
-2026-01-10 22:54:45,930 | INFO |   val step 1/97 mean_dice=0.4844
-2026-01-10 22:54:49,727 | INFO | Epoch 2 summary | train_loss=0.9668 val_loss=0.9236 val_mean_dice=0.5123 lr=0.000100 gpu_mem_max_mb=156.3
-2026-01-10 22:54:49,743 | INFO | Epoch 3/30
-2026-01-10 22:54:51,874 | INFO |   train step 1/338 loss=0.9794 avg_step=0.017s
-2026-01-10 22:54:55,637 | INFO |   train step 21/338 loss=0.8053 avg_step=0.016s
-2026-01-10 22:55:00,694 | INFO |   train step 41/338 loss=0.8508 avg_step=0.015s
-2026-01-10 22:55:04,397 | INFO |   train step 61/338 loss=0.8640 avg_step=0.015s
-2026-01-10 22:55:09,452 | INFO |   train step 81/338 loss=0.7870 avg_step=0.015s
-2026-01-10 22:55:13,158 | INFO |   train step 101/338 loss=0.7840 avg_step=0.015s
-2026-01-10 22:55:18,171 | INFO |   train step 121/338 loss=1.0247 avg_step=0.015s
-2026-01-10 22:55:21,869 | INFO |   train step 141/338 loss=0.8101 avg_step=0.015s
-2026-01-10 22:55:25,659 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
-2026-01-10 22:55:25,659 | INFO |   val step 1/97 mean_dice=0.4919
-2026-01-10 22:55:29,541 | INFO | Epoch 3 summary | train_loss=0.8414 val_loss=0.8117 val_mean_dice=0.4986 lr=0.000100 gpu_mem_max_mb=156.3
-2026-01-10 22:55:29,542 | INFO | Epoch 4/30
-2026-01-10 22:55:31,673 | INFO |   train step 1/338 loss=0.8488 avg_step=0.017s
-2026-01-10 22:55:35,437 | INFO |   train step 21/338 loss=0.7907 avg_step=0.015s
-2026-01-10 22:55:40,673 | INFO |   train step 41/338 loss=0.7340 avg_step=0.015s
-2026-01-10 22:55:44,174 | INFO |   train step 61/338 loss=0.7473 avg_step=0.015s
-2026-01-10 22:55:49,386 | INFO |   train step 81/338 loss=0.7252 avg_step=0.015s
-2026-01-10 22:55:52,913 | INFO |   train step 101/338 loss=0.7556 avg_step=0.015s
-2026-01-10 22:55:58,065 | INFO |   train step 121/338 loss=0.8162 avg_step=0.015s
-2026-01-10 22:56:01,664 | INFO |   train step 141/338 loss=0.6875 avg_step=0.015s
-2026-01-10 22:56:05,542 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
-2026-01-10 22:56:05,543 | INFO |   val step 1/97 mean_dice=0.4729
-2026-01-10 22:56:09,416 | INFO | Epoch 4 summary | train_loss=0.7781 val_loss=0.7836 val_mean_dice=0.4962 lr=0.000100 gpu_mem_max_mb=156.3
-2026-01-10 22:56:09,416 | INFO | Epoch 5/30
-2026-01-10 22:56:11,685 | INFO |   train step 1/338 loss=0.7423 avg_step=0.024s
-2026-01-10 22:56:15,420 | INFO |   train step 21/338 loss=0.7479 avg_step=0.015s
-2026-01-10 22:56:20,636 | INFO |   train step 41/338 loss=0.6809 avg_step=0.015s
-2026-01-10 22:56:24,119 | INFO |   train step 61/338 loss=0.7571 avg_step=0.015s
-2026-01-10 22:56:29,407 | INFO |   train step 81/338 loss=0.7645 avg_step=0.015s
-2026-01-10 22:56:33,006 | INFO |   train step 101/338 loss=0.6771 avg_step=0.015s
-2026-01-10 22:56:38,229 | INFO |   train step 121/338 loss=0.7274 avg_step=0.015s
-2026-01-10 22:56:41,804 | INFO |   train step 141/338 loss=0.8181 avg_step=0.015s
-2026-01-10 22:56:45,654 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
-2026-01-10 22:56:45,655 | INFO |   val step 1/97 mean_dice=0.4915
-2026-01-10 22:56:49,507 | INFO | Epoch 5 summary | train_loss=0.7233 val_loss=0.7021 val_mean_dice=0.5058 lr=0.000100 gpu_mem_max_mb=156.3
-2026-01-10 22:56:49,508 | INFO | Epoch 6/30
-2026-01-10 22:56:51,600 | INFO |   train step 1/338 loss=0.6536 avg_step=0.022s
-2026-01-10 22:56:55,379 | INFO |   train step 21/338 loss=0.6352 avg_step=0.015s
-2026-01-10 22:57:00,496 | INFO |   train step 41/338 loss=0.7267 avg_step=0.015s
-2026-01-10 22:57:04,077 | INFO |   train step 61/338 loss=0.8102 avg_step=0.015s
-2026-01-10 22:57:09,244 | INFO |   train step 81/338 loss=1.0035 avg_step=0.015s
-2026-01-10 22:57:12,908 | INFO |   train step 101/338 loss=0.6991 avg_step=0.015s
-2026-01-10 22:57:18,053 | INFO |   train step 121/338 loss=0.7718 avg_step=0.015s
-2026-01-10 22:57:21,701 | INFO |   train step 141/338 loss=0.6368 avg_step=0.015s
-2026-01-10 22:57:25,510 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
-2026-01-10 22:57:25,511 | INFO |   val step 1/97 mean_dice=0.4694
-2026-01-10 22:57:29,297 | INFO | Epoch 6 summary | train_loss=0.7350 val_loss=0.8068 val_mean_dice=0.4896 lr=0.000100 gpu_mem_max_mb=156.3
-2026-01-10 22:57:29,297 | INFO | Epoch 7/30
-2026-01-10 22:57:31,492 | INFO |   train step 1/338 loss=0.7802 avg_step=0.015s
-2026-01-10 22:57:35,146 | INFO |   train step 21/338 loss=0.6856 avg_step=0.015s
-2026-01-10 22:57:40,200 | INFO |   train step 41/338 loss=0.6292 avg_step=0.015s
-2026-01-10 22:57:43,828 | INFO |   train step 61/338 loss=0.6883 avg_step=0.015s
-2026-01-10 22:57:48,902 | INFO |   train step 81/338 loss=0.7842 avg_step=0.015s
-2026-01-10 22:57:52,615 | INFO |   train step 101/338 loss=0.8374 avg_step=0.015s
-2026-01-10 22:57:57,576 | INFO |   train step 121/338 loss=0.6510 avg_step=0.015s
-2026-01-10 22:58:01,311 | INFO |   train step 141/338 loss=0.7387 avg_step=0.015s
-2026-01-10 22:58:05,144 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
-2026-01-10 22:58:05,145 | INFO |   val step 1/97 mean_dice=0.4849
-2026-01-10 22:58:08,888 | INFO | Epoch 7 summary | train_loss=0.7142 val_loss=0.7637 val_mean_dice=0.4965 lr=0.000100 gpu_mem_max_mb=156.3
-2026-01-10 22:58:08,888 | INFO | Epoch 8/30
-2026-01-10 22:58:11,023 | INFO |   train step 1/338 loss=0.8736 avg_step=0.017s
-2026-01-10 22:58:14,743 | INFO |   train step 21/338 loss=0.6940 avg_step=0.015s
-2026-01-10 22:58:19,861 | INFO |   train step 41/338 loss=0.5820 avg_step=0.015s
-2026-01-10 22:58:23,475 | INFO |   train step 61/338 loss=0.6417 avg_step=0.015s
-2026-01-10 22:58:28,573 | INFO |   train step 81/338 loss=0.7095 avg_step=0.015s
-2026-01-10 22:58:32,176 | INFO |   train step 101/338 loss=0.7019 avg_step=0.015s
-2026-01-10 22:58:37,167 | INFO |   train step 121/338 loss=0.7610 avg_step=0.015s
-2026-01-10 22:58:40,904 | INFO |   train step 141/338 loss=0.9278 avg_step=0.015s
-2026-01-10 22:58:44,671 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
-2026-01-10 22:58:44,671 | INFO |   val step 1/97 mean_dice=0.5000
-2026-01-10 22:58:48,468 | INFO | Epoch 8 summary | train_loss=0.7011 val_loss=0.6962 val_mean_dice=0.5890 lr=0.000100 gpu_mem_max_mb=156.3
-2026-01-10 22:58:48,485 | INFO | Epoch 9/30
-2026-01-10 22:58:50,666 | INFO |   train step 1/338 loss=0.8055 avg_step=0.016s
-2026-01-10 22:58:54,429 | INFO |   train step 21/338 loss=0.6128 avg_step=0.015s
-2026-01-10 22:58:59,567 | INFO |   train step 41/338 loss=0.5675 avg_step=0.015s
-2026-01-10 22:59:03,206 | INFO |   train step 61/338 loss=0.4827 avg_step=0.015s
-2026-01-10 22:59:08,410 | INFO |   train step 81/338 loss=0.6939 avg_step=0.015s
-2026-01-10 22:59:12,033 | INFO |   train step 101/338 loss=0.5411 avg_step=0.015s
-2026-01-10 22:59:17,240 | INFO |   train step 121/338 loss=0.8473 avg_step=0.015s
-2026-01-10 22:59:20,877 | INFO |   train step 141/338 loss=0.6066 avg_step=0.015s
-2026-01-10 22:59:24,784 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
-2026-01-10 22:59:24,785 | INFO |   val step 1/97 mean_dice=0.4969
-2026-01-10 22:59:28,679 | INFO | Epoch 9 summary | train_loss=0.6842 val_loss=0.7718 val_mean_dice=0.4862 lr=0.000100 gpu_mem_max_mb=156.3
-2026-01-10 22:59:28,679 | INFO | Epoch 10/30
-2026-01-10 22:59:30,825 | INFO |   train step 1/338 loss=0.6629 avg_step=0.017s
-2026-01-10 22:59:34,584 | INFO |   train step 21/338 loss=0.6349 avg_step=0.015s
-2026-01-10 22:59:39,742 | INFO |   train step 41/338 loss=0.5825 avg_step=0.015s
-2026-01-10 22:59:43,351 | INFO |   train step 61/338 loss=0.6644 avg_step=0.015s
-2026-01-10 22:59:48,532 | INFO |   train step 81/338 loss=0.6603 avg_step=0.015s
-2026-01-10 22:59:52,078 | INFO |   train step 101/338 loss=0.6855 avg_step=0.015s
-2026-01-10 22:59:57,377 | INFO |   train step 121/338 loss=0.5275 avg_step=0.015s
-2026-01-10 23:00:01,005 | INFO |   train step 141/338 loss=0.7198 avg_step=0.015s
-2026-01-10 23:00:04,777 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
-2026-01-10 23:00:04,778 | INFO |   val step 1/97 mean_dice=0.4882
-2026-01-10 23:00:08,605 | INFO | Epoch 10 summary | train_loss=0.6785 val_loss=0.7491 val_mean_dice=0.4863 lr=0.000100 gpu_mem_max_mb=156.3
-2026-01-10 23:00:13,904 | INFO | Epoch 11/30
-2026-01-10 23:00:16,025 | INFO |   train step 1/338 loss=0.9882 avg_step=0.017s
-2026-01-10 23:00:19,661 | INFO |   train step 21/338 loss=0.6370 avg_step=0.015s
-2026-01-10 23:00:24,713 | INFO |   train step 41/338 loss=0.7576 avg_step=0.015s
-2026-01-10 23:00:28,452 | INFO |   train step 61/338 loss=0.7211 avg_step=0.015s
-2026-01-10 23:00:33,377 | INFO |   train step 81/338 loss=0.8523 avg_step=0.015s
-2026-01-10 23:00:37,272 | INFO |   train step 101/338 loss=0.5172 avg_step=0.015s
-2026-01-10 23:00:42,231 | INFO |   train step 121/338 loss=0.5950 avg_step=0.015s
-2026-01-10 23:00:46,004 | INFO |   train step 141/338 loss=0.6677 avg_step=0.015s
-2026-01-10 23:00:49,863 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
-2026-01-10 23:00:49,864 | INFO |   val step 1/97 mean_dice=0.4877
-2026-01-10 23:00:53,642 | INFO | Epoch 11 summary | train_loss=0.6886 val_loss=0.6772 val_mean_dice=0.5205 lr=0.000100 gpu_mem_max_mb=156.3
-2026-01-10 23:00:53,643 | INFO | Epoch 12/30
-2026-01-10 23:00:55,755 | INFO |   train step 1/338 loss=0.9300 avg_step=0.017s
-2026-01-10 23:00:59,580 | INFO |   train step 21/338 loss=0.6302 avg_step=0.015s
-2026-01-10 23:01:04,736 | INFO |   train step 41/338 loss=0.5985 avg_step=0.015s
-2026-01-10 23:01:08,252 | INFO |   train step 61/338 loss=0.6297 avg_step=0.015s
-2026-01-10 23:01:13,372 | INFO |   train step 81/338 loss=0.6024 avg_step=0.015s
-2026-01-10 23:01:16,877 | INFO |   train step 101/338 loss=0.6807 avg_step=0.015s
-2026-01-10 23:01:22,057 | INFO |   train step 121/338 loss=0.9419 avg_step=0.015s
-2026-01-10 23:01:25,631 | INFO |   train step 141/338 loss=0.6395 avg_step=0.015s
-2026-01-10 23:01:29,596 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
-2026-01-10 23:01:29,597 | INFO |   val step 1/97 mean_dice=0.4793
-2026-01-10 23:01:33,481 | INFO | Epoch 12 summary | train_loss=0.7039 val_loss=0.6981 val_mean_dice=0.4896 lr=0.000100 gpu_mem_max_mb=156.3
-2026-01-10 23:01:33,481 | INFO | Epoch 13/30
-2026-01-10 23:01:35,750 | INFO |   train step 1/338 loss=0.6565 avg_step=0.018s
-2026-01-10 23:01:40,155 | INFO |   train step 21/338 loss=0.7959 avg_step=0.017s
-2026-01-10 23:01:45,654 | INFO |   train step 41/338 loss=0.7369 avg_step=0.015s
-2026-01-10 23:01:49,205 | INFO |   train step 61/338 loss=0.8676 avg_step=0.015s
-2026-01-10 23:01:54,365 | INFO |   train step 81/338 loss=0.5125 avg_step=0.015s
-2026-01-10 23:01:58,002 | INFO |   train step 101/338 loss=0.8069 avg_step=0.015s
-2026-01-10 23:02:03,070 | INFO |   train step 121/338 loss=0.5489 avg_step=0.016s
-2026-01-10 23:02:06,750 | INFO |   train step 141/338 loss=0.6015 avg_step=0.016s
-2026-01-10 23:02:10,499 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
-2026-01-10 23:02:10,499 | INFO |   val step 1/97 mean_dice=0.4920
-2026-01-10 23:02:14,370 | INFO | Epoch 13 summary | train_loss=0.6929 val_loss=0.6933 val_mean_dice=0.4833 lr=0.000100 gpu_mem_max_mb=156.3
-2026-01-10 23:02:14,370 | INFO | Epoch 14/30
-2026-01-10 23:02:16,442 | INFO |   train step 1/338 loss=0.6296 avg_step=0.017s
-2026-01-10 23:02:20,238 | INFO |   train step 21/338 loss=0.4484 avg_step=0.016s
-2026-01-10 23:02:25,378 | INFO |   train step 41/338 loss=0.8567 avg_step=0.015s
-2026-01-10 23:02:29,071 | INFO |   train step 61/338 loss=0.6414 avg_step=0.015s
-2026-01-10 23:02:34,316 | INFO |   train step 81/338 loss=0.6081 avg_step=0.015s
-2026-01-10 23:02:37,821 | INFO |   train step 101/338 loss=0.5874 avg_step=0.015s
-2026-01-10 23:02:42,922 | INFO |   train step 121/338 loss=0.6918 avg_step=0.015s
-2026-01-10 23:02:46,416 | INFO |   train step 141/338 loss=0.5972 avg_step=0.015s
-2026-01-10 23:02:50,308 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
-2026-01-10 23:02:50,309 | INFO |   val step 1/97 mean_dice=0.5829
-2026-01-10 23:02:54,105 | INFO | Epoch 14 summary | train_loss=0.6951 val_loss=0.6639 val_mean_dice=0.5063 lr=0.000100 gpu_mem_max_mb=156.3
-2026-01-10 23:02:54,106 | INFO | Epoch 15/30
-2026-01-10 23:02:56,264 | INFO |   train step 1/338 loss=0.5103 avg_step=0.016s
-2026-01-10 23:03:00,015 | INFO |   train step 21/338 loss=0.4698 avg_step=0.016s
-2026-01-10 23:03:05,168 | INFO |   train step 41/338 loss=0.6362 avg_step=0.015s
-2026-01-10 23:03:08,777 | INFO |   train step 61/338 loss=0.8572 avg_step=0.015s
-2026-01-10 23:03:13,946 | INFO |   train step 81/338 loss=0.7099 avg_step=0.015s
-2026-01-10 23:03:17,501 | INFO |   train step 101/338 loss=0.6013 avg_step=0.015s
-2026-01-10 23:03:22,747 | INFO |   train step 121/338 loss=0.5152 avg_step=0.015s
-2026-01-10 23:03:26,246 | INFO |   train step 141/338 loss=0.6007 avg_step=0.015s
-2026-01-10 23:03:30,078 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
-2026-01-10 23:03:30,078 | INFO |   val step 1/97 mean_dice=0.4926
-2026-01-10 23:03:33,891 | INFO | Epoch 15 summary | train_loss=0.6581 val_loss=0.7105 val_mean_dice=0.5065 lr=0.000100 gpu_mem_max_mb=156.3
-2026-01-10 23:03:33,891 | INFO | Epoch 16/30
-2026-01-10 23:03:35,969 | INFO |   train step 1/338 loss=0.5352 avg_step=0.031s
-2026-01-10 23:03:39,720 | INFO |   train step 21/338 loss=0.6484 avg_step=0.016s
-2026-01-10 23:03:44,810 | INFO |   train step 41/338 loss=0.7556 avg_step=0.015s
-2026-01-10 23:03:48,467 | INFO |   train step 61/338 loss=0.8723 avg_step=0.015s
-2026-01-10 23:03:53,610 | INFO |   train step 81/338 loss=0.5621 avg_step=0.015s
-2026-01-10 23:03:57,261 | INFO |   train step 101/338 loss=0.6338 avg_step=0.015s
-2026-01-10 23:04:02,404 | INFO |   train step 121/338 loss=0.5374 avg_step=0.015s
-2026-01-10 23:04:06,858 | INFO |   train step 141/338 loss=0.6818 avg_step=0.017s
-2026-01-10 23:04:10,672 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
-2026-01-10 23:04:10,673 | INFO |   val step 1/97 mean_dice=0.4869
-2026-01-10 23:04:14,567 | INFO | Epoch 16 summary | train_loss=0.6836 val_loss=0.6613 val_mean_dice=0.4942 lr=0.000100 gpu_mem_max_mb=156.3
-2026-01-10 23:04:14,567 | INFO | Epoch 17/30
-2026-01-10 23:04:16,725 | INFO |   train step 1/338 loss=0.6417 avg_step=0.016s
-2026-01-10 23:04:20,411 | INFO |   train step 21/338 loss=0.5931 avg_step=0.015s
-2026-01-10 23:04:25,618 | INFO |   train step 41/338 loss=0.8413 avg_step=0.015s
-2026-01-10 23:04:29,213 | INFO |   train step 61/338 loss=0.8916 avg_step=0.015s
-2026-01-10 23:04:34,323 | INFO |   train step 81/338 loss=0.7738 avg_step=0.015s
-2026-01-10 23:04:37,934 | INFO |   train step 101/338 loss=0.5333 avg_step=0.015s
-2026-01-10 23:04:43,064 | INFO |   train step 121/338 loss=0.6351 avg_step=0.015s
-2026-01-10 23:04:46,570 | INFO |   train step 141/338 loss=0.5696 avg_step=0.015s
-2026-01-10 23:04:50,359 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
-2026-01-10 23:04:50,360 | INFO |   val step 1/97 mean_dice=0.5108
-2026-01-10 23:04:54,196 | INFO | Epoch 17 summary | train_loss=0.7010 val_loss=0.6394 val_mean_dice=0.4975 lr=0.000100 gpu_mem_max_mb=156.3
-2026-01-10 23:04:54,196 | INFO | Epoch 18/30
-2026-01-10 23:04:56,324 | INFO |   train step 1/338 loss=0.5987 avg_step=0.016s
-2026-01-10 23:05:00,084 | INFO |   train step 21/338 loss=0.5091 avg_step=0.015s
-2026-01-10 23:05:05,294 | INFO |   train step 41/338 loss=0.7540 avg_step=0.015s
-2026-01-10 23:05:08,802 | INFO |   train step 61/338 loss=0.4924 avg_step=0.015s
-2026-01-10 23:05:13,862 | INFO |   train step 81/338 loss=0.7372 avg_step=0.015s
-2026-01-10 23:05:17,353 | INFO |   train step 101/338 loss=0.5428 avg_step=0.015s
-2026-01-10 23:05:22,337 | INFO |   train step 121/338 loss=0.6016 avg_step=0.015s
-2026-01-10 23:05:26,133 | INFO |   train step 141/338 loss=0.7173 avg_step=0.016s
-2026-01-10 23:05:29,964 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
-2026-01-10 23:05:29,965 | INFO |   val step 1/97 mean_dice=0.4850
-2026-01-10 23:05:33,836 | INFO | Epoch 18 summary | train_loss=0.6712 val_loss=0.7084 val_mean_dice=0.4893 lr=0.000100 gpu_mem_max_mb=156.3
-2026-01-10 23:05:33,837 | INFO | Epoch 19/30
-2026-01-10 23:05:36,001 | INFO |   train step 1/338 loss=0.5257 avg_step=0.017s
-2026-01-10 23:05:39,687 | INFO |   train step 21/338 loss=0.5881 avg_step=0.015s
-2026-01-10 23:05:44,890 | INFO |   train step 41/338 loss=0.7110 avg_step=0.015s
-2026-01-10 23:05:48,368 | INFO |   train step 61/338 loss=0.4761 avg_step=0.015s
-2026-01-10 23:05:53,506 | INFO |   train step 81/338 loss=0.6981 avg_step=0.015s
-2026-01-10 23:05:57,065 | INFO |   train step 101/338 loss=0.8854 avg_step=0.015s
-2026-01-10 23:06:02,217 | INFO |   train step 121/338 loss=0.5597 avg_step=0.015s
-2026-01-10 23:06:05,824 | INFO |   train step 141/338 loss=0.5874 avg_step=0.015s
-2026-01-10 23:06:09,696 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
-2026-01-10 23:06:09,697 | INFO |   val step 1/97 mean_dice=0.4862
-2026-01-10 23:06:13,520 | INFO | Epoch 19 summary | train_loss=0.6800 val_loss=0.6593 val_mean_dice=0.5411 lr=0.000100 gpu_mem_max_mb=156.3
-2026-01-10 23:06:13,521 | INFO | Epoch 20/30
-2026-01-10 23:06:15,609 | INFO |   train step 1/338 loss=0.6429 avg_step=0.017s
-2026-01-10 23:06:19,406 | INFO |   train step 21/338 loss=0.5318 avg_step=0.015s
-2026-01-10 23:06:24,558 | INFO |   train step 41/338 loss=0.8738 avg_step=0.015s
-2026-01-10 23:06:27,994 | INFO |   train step 61/338 loss=0.8892 avg_step=0.015s
-2026-01-10 23:06:33,104 | INFO |   train step 81/338 loss=0.5361 avg_step=0.015s
-2026-01-10 23:06:36,677 | INFO |   train step 101/338 loss=0.6240 avg_step=0.015s
-2026-01-10 23:06:41,881 | INFO |   train step 121/338 loss=0.4986 avg_step=0.015s
-2026-01-10 23:06:45,396 | INFO |   train step 141/338 loss=0.6313 avg_step=0.015s
-2026-01-10 23:06:49,202 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
-2026-01-10 23:06:49,203 | INFO |   val step 1/97 mean_dice=0.4905
-2026-01-10 23:06:53,047 | INFO | Epoch 20 summary | train_loss=0.6711 val_loss=0.7224 val_mean_dice=0.4945 lr=0.000100 gpu_mem_max_mb=156.3
-2026-01-10 23:06:58,333 | INFO | Epoch 21/30
-2026-01-10 23:07:00,505 | INFO |   train step 1/338 loss=0.6524 avg_step=0.017s
-2026-01-10 23:07:04,082 | INFO |   train step 21/338 loss=0.5709 avg_step=0.015s
-2026-01-10 23:07:09,145 | INFO |   train step 41/338 loss=0.7422 avg_step=0.015s
-2026-01-10 23:07:12,782 | INFO |   train step 61/338 loss=0.4376 avg_step=0.015s
-2026-01-10 23:07:17,838 | INFO |   train step 81/338 loss=0.6541 avg_step=0.015s
-2026-01-10 23:07:21,583 | INFO |   train step 101/338 loss=0.6410 avg_step=0.015s
-2026-01-10 23:07:26,610 | INFO |   train step 121/338 loss=0.5436 avg_step=0.015s
-2026-01-10 23:07:30,348 | INFO |   train step 141/338 loss=0.5031 avg_step=0.015s
-2026-01-10 23:07:34,126 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
-2026-01-10 23:07:34,127 | INFO |   val step 1/97 mean_dice=0.4907
-2026-01-10 23:07:37,954 | INFO | Epoch 21 summary | train_loss=0.6523 val_loss=0.6773 val_mean_dice=0.4877 lr=0.000100 gpu_mem_max_mb=156.3
-2026-01-10 23:07:37,954 | INFO | Epoch 22/30
-2026-01-10 23:07:40,005 | INFO |   train step 1/338 loss=0.8830 avg_step=0.016s
-2026-01-10 23:07:43,837 | INFO |   train step 21/338 loss=0.6529 avg_step=0.015s
-2026-01-10 23:07:48,910 | INFO |   train step 41/338 loss=0.5881 avg_step=0.015s
-2026-01-10 23:07:52,469 | INFO |   train step 61/338 loss=0.6552 avg_step=0.015s
-2026-01-10 23:07:57,571 | INFO |   train step 81/338 loss=0.5435 avg_step=0.015s
-2026-01-10 23:08:01,221 | INFO |   train step 101/338 loss=0.7491 avg_step=0.015s
-2026-01-10 23:08:06,130 | INFO |   train step 121/338 loss=0.6806 avg_step=0.015s
-2026-01-10 23:08:09,937 | INFO |   train step 141/338 loss=0.6150 avg_step=0.015s
-2026-01-10 23:08:13,748 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
-2026-01-10 23:08:13,749 | INFO |   val step 1/97 mean_dice=0.4985
-2026-01-10 23:08:17,588 | INFO | Epoch 22 summary | train_loss=0.6850 val_loss=0.6976 val_mean_dice=0.5017 lr=0.000100 gpu_mem_max_mb=156.3
-2026-01-10 23:08:17,588 | INFO | Epoch 23/30
-2026-01-10 23:08:19,729 | INFO |   train step 1/338 loss=0.6178 avg_step=0.016s
-2026-01-10 23:08:23,498 | INFO |   train step 21/338 loss=0.5869 avg_step=0.015s
-2026-01-10 23:08:28,572 | INFO |   train step 41/338 loss=0.4363 avg_step=0.015s
-2026-01-10 23:08:32,183 | INFO |   train step 61/338 loss=0.7482 avg_step=0.015s
-2026-01-10 23:08:37,286 | INFO |   train step 81/338 loss=1.0215 avg_step=0.015s
-2026-01-10 23:08:40,947 | INFO |   train step 101/338 loss=0.7670 avg_step=0.015s
-2026-01-10 23:08:45,895 | INFO |   train step 121/338 loss=0.7085 avg_step=0.015s
-2026-01-10 23:08:49,681 | INFO |   train step 141/338 loss=0.5884 avg_step=0.015s
-2026-01-10 23:08:53,447 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
-2026-01-10 23:08:53,448 | INFO |   val step 1/97 mean_dice=1.0000
-2026-01-10 23:08:57,299 | INFO | Epoch 23 summary | train_loss=0.6608 val_loss=0.6089 val_mean_dice=0.5220 lr=0.000100 gpu_mem_max_mb=156.3
-2026-01-10 23:08:57,300 | INFO | Epoch 24/30
-2026-01-10 23:08:59,440 | INFO |   train step 1/338 loss=0.7663 avg_step=0.016s
-2026-01-10 23:09:03,123 | INFO |   train step 21/338 loss=0.5226 avg_step=0.015s
-2026-01-10 23:09:07,984 | INFO |   train step 41/338 loss=0.5316 avg_step=0.015s
-2026-01-10 23:09:11,941 | INFO |   train step 61/338 loss=0.5141 avg_step=0.015s
-2026-01-10 23:09:16,675 | INFO |   train step 81/338 loss=1.0160 avg_step=0.015s
-2026-01-10 23:09:20,783 | INFO |   train step 101/338 loss=0.9356 avg_step=0.015s
-2026-01-10 23:09:25,174 | INFO |   train step 121/338 loss=0.8607 avg_step=0.015s
-2026-01-10 23:09:29,449 | INFO |   train step 141/338 loss=0.6377 avg_step=0.016s
-2026-01-10 23:09:33,195 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
-2026-01-10 23:09:33,196 | INFO |   val step 1/97 mean_dice=0.4970
-2026-01-10 23:09:36,999 | INFO | Epoch 24 summary | train_loss=0.6784 val_loss=0.6490 val_mean_dice=0.4935 lr=0.000100 gpu_mem_max_mb=156.3
-2026-01-10 23:09:36,999 | INFO | Epoch 25/30
-2026-01-10 23:09:39,164 | INFO |   train step 1/338 loss=0.5217 avg_step=0.016s
-2026-01-10 23:09:42,899 | INFO |   train step 21/338 loss=0.5834 avg_step=0.015s
-2026-01-10 23:09:48,061 | INFO |   train step 41/338 loss=0.6487 avg_step=0.015s
-2026-01-10 23:09:51,657 | INFO |   train step 61/338 loss=0.8514 avg_step=0.015s
-2026-01-10 23:09:56,820 | INFO |   train step 81/338 loss=0.4779 avg_step=0.015s
-2026-01-10 23:10:00,349 | INFO |   train step 101/338 loss=0.6516 avg_step=0.015s
-2026-01-10 23:10:05,432 | INFO |   train step 121/338 loss=0.7879 avg_step=0.015s
-2026-01-10 23:10:09,034 | INFO |   train step 141/338 loss=0.5726 avg_step=0.015s
-2026-01-10 23:10:12,948 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
-2026-01-10 23:10:12,949 | INFO |   val step 1/97 mean_dice=0.4981
-2026-01-10 23:10:16,679 | INFO | Epoch 25 summary | train_loss=0.6462 val_loss=0.6710 val_mean_dice=0.5398 lr=0.000100 gpu_mem_max_mb=156.3
-2026-01-10 23:10:16,679 | INFO | Epoch 26/30
-2026-01-10 23:10:18,818 | INFO |   train step 1/338 loss=0.5233 avg_step=0.016s
-2026-01-10 23:10:22,546 | INFO |   train step 21/338 loss=0.7342 avg_step=0.015s
-2026-01-10 23:10:27,673 | INFO |   train step 41/338 loss=0.6740 avg_step=0.015s
-2026-01-10 23:10:31,313 | INFO |   train step 61/338 loss=0.6983 avg_step=0.015s
-2026-01-10 23:10:36,407 | INFO |   train step 81/338 loss=0.5263 avg_step=0.015s
-2026-01-10 23:10:39,952 | INFO |   train step 101/338 loss=0.8519 avg_step=0.015s
-2026-01-10 23:10:45,140 | INFO |   train step 121/338 loss=0.6544 avg_step=0.015s
-2026-01-10 23:10:48,658 | INFO |   train step 141/338 loss=0.5106 avg_step=0.015s
-2026-01-10 23:10:52,503 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
-2026-01-10 23:10:52,504 | INFO |   val step 1/97 mean_dice=0.4972
-2026-01-10 23:10:56,316 | INFO | Epoch 26 summary | train_loss=0.6608 val_loss=0.6291 val_mean_dice=0.4919 lr=0.000100 gpu_mem_max_mb=156.3
-2026-01-10 23:10:56,316 | INFO | Epoch 27/30
-2026-01-10 23:10:58,365 | INFO |   train step 1/338 loss=0.6258 avg_step=0.016s
-2026-01-10 23:11:02,105 | INFO |   train step 21/338 loss=0.4997 avg_step=0.016s
-2026-01-10 23:11:07,072 | INFO |   train step 41/338 loss=0.6342 avg_step=0.015s
-2026-01-10 23:11:10,785 | INFO |   train step 61/338 loss=0.5833 avg_step=0.015s
-2026-01-10 23:11:15,756 | INFO |   train step 81/338 loss=0.6075 avg_step=0.015s
-2026-01-10 23:11:19,591 | INFO |   train step 101/338 loss=0.6599 avg_step=0.015s
-2026-01-10 23:11:24,381 | INFO |   train step 121/338 loss=0.5743 avg_step=0.015s
-2026-01-10 23:11:28,252 | INFO |   train step 141/338 loss=0.5821 avg_step=0.015s
-2026-01-10 23:11:32,106 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
-2026-01-10 23:11:32,107 | INFO |   val step 1/97 mean_dice=0.4975
-2026-01-10 23:11:35,920 | INFO | Epoch 27 summary | train_loss=0.6783 val_loss=0.6508 val_mean_dice=0.4869 lr=0.000100 gpu_mem_max_mb=156.3
-2026-01-10 23:11:35,920 | INFO | Epoch 28/30
-2026-01-10 23:11:38,028 | INFO |   train step 1/338 loss=0.6111 avg_step=0.017s
-2026-01-10 23:11:41,714 | INFO |   train step 21/338 loss=0.6427 avg_step=0.015s
-2026-01-10 23:11:46,821 | INFO |   train step 41/338 loss=0.5375 avg_step=0.015s
-2026-01-10 23:11:50,473 | INFO |   train step 61/338 loss=0.5691 avg_step=0.015s
-2026-01-10 23:11:55,577 | INFO |   train step 81/338 loss=0.6913 avg_step=0.015s
-2026-01-10 23:11:59,250 | INFO |   train step 101/338 loss=0.6661 avg_step=0.015s
-2026-01-10 23:12:04,213 | INFO |   train step 121/338 loss=0.7075 avg_step=0.015s
-2026-01-10 23:12:07,995 | INFO |   train step 141/338 loss=0.5925 avg_step=0.015s
-2026-01-10 23:12:11,824 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
-2026-01-10 23:12:11,825 | INFO |   val step 1/97 mean_dice=0.4888
-2026-01-10 23:12:15,605 | INFO | Epoch 28 summary | train_loss=0.6193 val_loss=0.7187 val_mean_dice=0.4898 lr=0.000100 gpu_mem_max_mb=156.3
-2026-01-10 23:12:15,606 | INFO | Epoch 29/30
-2026-01-10 23:12:17,700 | INFO |   train step 1/338 loss=0.6759 avg_step=0.016s
-2026-01-10 23:12:21,482 | INFO |   train step 21/338 loss=0.5180 avg_step=0.015s
-2026-01-10 23:12:26,503 | INFO |   train step 41/338 loss=0.8768 avg_step=0.015s
-2026-01-10 23:12:30,136 | INFO |   train step 61/338 loss=0.6053 avg_step=0.015s
-2026-01-10 23:12:35,274 | INFO |   train step 81/338 loss=0.6128 avg_step=0.015s
-2026-01-10 23:12:38,902 | INFO |   train step 101/338 loss=0.6097 avg_step=0.015s
-2026-01-10 23:12:44,012 | INFO |   train step 121/338 loss=0.6664 avg_step=0.015s
-2026-01-10 23:12:47,599 | INFO |   train step 141/338 loss=0.5143 avg_step=0.015s
-2026-01-10 23:12:51,372 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
-2026-01-10 23:12:51,373 | INFO |   val step 1/97 mean_dice=0.4975
-2026-01-10 23:12:55,233 | INFO | Epoch 29 summary | train_loss=0.6358 val_loss=0.6412 val_mean_dice=0.4926 lr=0.000100 gpu_mem_max_mb=156.3
-2026-01-10 23:12:55,233 | INFO | Epoch 30/30
-2026-01-10 23:12:57,368 | INFO |   train step 1/338 loss=0.6045 avg_step=0.021s
-2026-01-10 23:13:01,113 | INFO |   train step 21/338 loss=0.6227 avg_step=0.015s
-2026-01-10 23:13:06,228 | INFO |   train step 41/338 loss=0.7045 avg_step=0.015s
-2026-01-10 23:13:09,848 | INFO |   train step 61/338 loss=1.1029 avg_step=0.015s
-2026-01-10 23:13:15,034 | INFO |   train step 81/338 loss=0.8245 avg_step=0.015s
-2026-01-10 23:13:18,598 | INFO |   train step 101/338 loss=0.7138 avg_step=0.015s
-2026-01-10 23:13:23,682 | INFO |   train step 121/338 loss=0.4053 avg_step=0.015s
-2026-01-10 23:13:27,315 | INFO |   train step 141/338 loss=0.3979 avg_step=0.015s
-2026-01-10 23:13:31,089 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
-2026-01-10 23:13:31,090 | INFO |   val step 1/97 mean_dice=0.4938
-2026-01-10 23:13:34,960 | INFO | Epoch 30 summary | train_loss=0.6638 val_loss=0.6166 val_mean_dice=0.4976 lr=0.000100 gpu_mem_max_mb=156.3
-2026-01-10 23:13:40,272 | INFO | Best val mean Dice: 0.5890
-2026-01-10 23:13:40,273 | INFO | Run directory: outputs/runs/20260110_225328
+2026-01-11 11:41:42,319 | INFO | Train batches per epoch: 338 | Val batches: 97
+2026-01-11 11:41:42,319 | INFO | Using device: cuda
+2026-01-11 11:41:42,319 | INFO | ROI size: [96, 96, 96]
+2026-01-11 11:41:42,320 | INFO | num_workers: 8
+2026-01-11 11:41:42,320 | INFO | limit_train_batches: 150 | limit_val_batches: 20
+2026-01-11 11:41:42,320 | INFO | GPU name: Tesla V100-SXM2-16GB
+2026-01-11 11:41:42,320 | INFO | CUDA capability: (7, 0)
+2026-01-11 11:41:42,320 | INFO | AMP enabled: True
+2026-01-11 11:41:42,321 | WARNING | For best throughput set: OMP_NUM_THREADS=1 and MKL_NUM_THREADS=1
+2026-01-11 11:41:42,323 | INFO | Epoch 1/30
+2026-01-11 11:41:45,203 | INFO |   train step 1/338 loss=1.4284 avg_step=0.892s
+2026-01-11 11:41:47,778 | INFO |   train step 21/338 loss=1.2677 avg_step=0.015s
+2026-01-11 11:41:52,907 | INFO |   train step 41/338 loss=1.2469 avg_step=0.015s
+2026-01-11 11:41:56,464 | INFO |   train step 61/338 loss=1.2062 avg_step=0.015s
+2026-01-11 11:42:01,575 | INFO |   train step 81/338 loss=1.1738 avg_step=0.015s
+2026-01-11 11:42:05,051 | INFO |   train step 101/338 loss=1.1429 avg_step=0.015s
+2026-01-11 11:42:10,106 | INFO |   train step 121/338 loss=1.1230 avg_step=0.015s
+2026-01-11 11:42:13,616 | INFO |   train step 141/338 loss=1.0670 avg_step=0.015s
+2026-01-11 11:42:17,902 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
+2026-01-11 11:42:17,953 | INFO |   val step 1/97 mean_dice=0.4851
+2026-01-11 11:42:21,213 | INFO | Epoch 1 summary | train_loss=1.1787 val_loss=1.0676 val_mean_dice=0.4973 lr=0.000100 gpu_mem_max_mb=142.8
+2026-01-11 11:42:21,249 | INFO | Epoch 2/30
+2026-01-11 11:42:23,167 | INFO |   train step 1/338 loss=1.0511 avg_step=0.022s
+2026-01-11 11:42:26,696 | INFO |   train step 21/338 loss=1.0436 avg_step=0.016s
+2026-01-11 11:42:31,738 | INFO |   train step 41/338 loss=0.9744 avg_step=0.015s
+2026-01-11 11:42:35,231 | INFO |   train step 61/338 loss=0.9740 avg_step=0.015s
+2026-01-11 11:42:40,281 | INFO |   train step 81/338 loss=0.9513 avg_step=0.015s
+2026-01-11 11:42:43,738 | INFO |   train step 101/338 loss=0.9913 avg_step=0.015s
+2026-01-11 11:42:48,683 | INFO |   train step 121/338 loss=0.9147 avg_step=0.015s
+2026-01-11 11:42:52,251 | INFO |   train step 141/338 loss=0.9825 avg_step=0.015s
+2026-01-11 11:42:55,969 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
+2026-01-11 11:42:55,970 | INFO |   val step 1/97 mean_dice=0.4829
+2026-01-11 11:42:59,463 | INFO | Epoch 2 summary | train_loss=0.9669 val_loss=0.9223 val_mean_dice=0.5125 lr=0.000100 gpu_mem_max_mb=156.3
+2026-01-11 11:42:59,478 | INFO | Epoch 3/30
+2026-01-11 11:43:01,265 | INFO |   train step 1/338 loss=0.9778 avg_step=0.019s
+2026-01-11 11:43:04,923 | INFO |   train step 21/338 loss=0.8048 avg_step=0.016s
+2026-01-11 11:43:09,848 | INFO |   train step 41/338 loss=0.8502 avg_step=0.016s
+2026-01-11 11:43:13,534 | INFO |   train step 61/338 loss=0.8633 avg_step=0.015s
+2026-01-11 11:43:18,502 | INFO |   train step 81/338 loss=0.7846 avg_step=0.015s
+2026-01-11 11:43:22,114 | INFO |   train step 101/338 loss=0.7796 avg_step=0.015s
+2026-01-11 11:43:27,162 | INFO |   train step 121/338 loss=1.0235 avg_step=0.015s
+2026-01-11 11:43:30,671 | INFO |   train step 141/338 loss=0.8099 avg_step=0.015s
+2026-01-11 11:43:34,306 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
+2026-01-11 11:43:34,307 | INFO |   val step 1/97 mean_dice=0.4919
+2026-01-11 11:43:38,032 | INFO | Epoch 3 summary | train_loss=0.8405 val_loss=0.8128 val_mean_dice=0.4978 lr=0.000100 gpu_mem_max_mb=156.3
+2026-01-11 11:43:38,033 | INFO | Epoch 4/30
+2026-01-11 11:43:39,899 | INFO |   train step 1/338 loss=0.8477 avg_step=0.020s
+2026-01-11 11:43:43,483 | INFO |   train step 21/338 loss=0.7906 avg_step=0.015s
+2026-01-11 11:43:48,642 | INFO |   train step 41/338 loss=0.7328 avg_step=0.015s
+2026-01-11 11:43:52,136 | INFO |   train step 61/338 loss=0.7435 avg_step=0.014s
+2026-01-11 11:43:57,312 | INFO |   train step 81/338 loss=0.7250 avg_step=0.015s
+2026-01-11 11:44:00,799 | INFO |   train step 101/338 loss=0.7545 avg_step=0.016s
+2026-01-11 11:44:05,899 | INFO |   train step 121/338 loss=0.8156 avg_step=0.016s
+2026-01-11 11:44:09,396 | INFO |   train step 141/338 loss=0.7006 avg_step=0.016s
+2026-01-11 11:44:12,954 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
+2026-01-11 11:44:12,955 | INFO |   val step 1/97 mean_dice=0.4725
+2026-01-11 11:44:16,704 | INFO | Epoch 4 summary | train_loss=0.7781 val_loss=0.7832 val_mean_dice=0.4959 lr=0.000100 gpu_mem_max_mb=156.3
+2026-01-11 11:44:16,704 | INFO | Epoch 5/30
+2026-01-11 11:44:18,531 | INFO |   train step 1/338 loss=0.7436 avg_step=0.023s
+2026-01-11 11:44:22,086 | INFO |   train step 21/338 loss=0.7494 avg_step=0.016s
+2026-01-11 11:44:27,085 | INFO |   train step 41/338 loss=0.6803 avg_step=0.015s
+2026-01-11 11:44:30,640 | INFO |   train step 61/338 loss=0.7580 avg_step=0.015s
+2026-01-11 11:44:35,577 | INFO |   train step 81/338 loss=0.7646 avg_step=0.015s
+2026-01-11 11:44:39,222 | INFO |   train step 101/338 loss=0.6783 avg_step=0.015s
+2026-01-11 11:44:44,258 | INFO |   train step 121/338 loss=0.7282 avg_step=0.015s
+2026-01-11 11:44:47,832 | INFO |   train step 141/338 loss=0.8175 avg_step=0.016s
+2026-01-11 11:44:51,401 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
+2026-01-11 11:44:51,402 | INFO |   val step 1/97 mean_dice=0.4915
+2026-01-11 11:44:55,083 | INFO | Epoch 5 summary | train_loss=0.7237 val_loss=0.7017 val_mean_dice=0.5052 lr=0.000100 gpu_mem_max_mb=156.3
+2026-01-11 11:44:55,084 | INFO | Epoch 6/30
+2026-01-11 11:44:56,845 | INFO |   train step 1/338 loss=0.6537 avg_step=0.020s
+2026-01-11 11:45:00,436 | INFO |   train step 21/338 loss=0.6350 avg_step=0.016s
+2026-01-11 11:45:05,456 | INFO |   train step 41/338 loss=0.7239 avg_step=0.015s
+2026-01-11 11:45:08,986 | INFO |   train step 61/338 loss=0.8123 avg_step=0.015s
+2026-01-11 11:45:14,066 | INFO |   train step 81/338 loss=0.9921 avg_step=0.015s
+2026-01-11 11:45:17,574 | INFO |   train step 101/338 loss=0.7012 avg_step=0.015s
+2026-01-11 11:45:22,678 | INFO |   train step 121/338 loss=0.7708 avg_step=0.015s
+2026-01-11 11:45:26,239 | INFO |   train step 141/338 loss=0.6362 avg_step=0.016s
+2026-01-11 11:45:29,792 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
+2026-01-11 11:45:29,793 | INFO |   val step 1/97 mean_dice=0.4696
+2026-01-11 11:45:33,468 | INFO | Epoch 6 summary | train_loss=0.7346 val_loss=0.8065 val_mean_dice=0.4905 lr=0.000100 gpu_mem_max_mb=156.3
+2026-01-11 11:45:33,469 | INFO | Epoch 7/30
+2026-01-11 11:45:35,303 | INFO |   train step 1/338 loss=0.7808 avg_step=0.019s
+2026-01-11 11:45:38,852 | INFO |   train step 21/338 loss=0.6868 avg_step=0.016s
+2026-01-11 11:45:43,768 | INFO |   train step 41/338 loss=0.6281 avg_step=0.015s
+2026-01-11 11:45:47,355 | INFO |   train step 61/338 loss=0.6907 avg_step=0.015s
+2026-01-11 11:45:52,258 | INFO |   train step 81/338 loss=0.7880 avg_step=0.016s
+2026-01-11 11:45:55,914 | INFO |   train step 101/338 loss=0.8338 avg_step=0.015s
+2026-01-11 11:46:00,741 | INFO |   train step 121/338 loss=0.6521 avg_step=0.015s
+2026-01-11 11:46:04,454 | INFO |   train step 141/338 loss=0.7366 avg_step=0.015s
+2026-01-11 11:46:07,992 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
+2026-01-11 11:46:07,993 | INFO |   val step 1/97 mean_dice=0.4846
+2026-01-11 11:46:11,617 | INFO | Epoch 7 summary | train_loss=0.7140 val_loss=0.7628 val_mean_dice=0.4960 lr=0.000100 gpu_mem_max_mb=156.3
+2026-01-11 11:46:11,617 | INFO | Epoch 8/30
+2026-01-11 11:46:13,529 | INFO |   train step 1/338 loss=0.8731 avg_step=0.018s
+2026-01-11 11:46:16,998 | INFO |   train step 21/338 loss=0.6994 avg_step=0.015s
+2026-01-11 11:46:21,998 | INFO |   train step 41/338 loss=0.5845 avg_step=0.015s
+2026-01-11 11:46:25,569 | INFO |   train step 61/338 loss=0.6319 avg_step=0.015s
+2026-01-11 11:46:30,593 | INFO |   train step 81/338 loss=0.7077 avg_step=0.015s
+2026-01-11 11:46:34,107 | INFO |   train step 101/338 loss=0.6897 avg_step=0.015s
+2026-01-11 11:46:38,977 | INFO |   train step 121/338 loss=0.8058 avg_step=0.015s
+2026-01-11 11:46:42,612 | INFO |   train step 141/338 loss=0.9526 avg_step=0.015s
+2026-01-11 11:46:46,145 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
+2026-01-11 11:46:46,146 | INFO |   val step 1/97 mean_dice=0.5000
+2026-01-11 11:46:49,827 | INFO | Epoch 8 summary | train_loss=0.7016 val_loss=0.6960 val_mean_dice=0.5386 lr=0.000100 gpu_mem_max_mb=156.3
+2026-01-11 11:46:49,846 | INFO | Epoch 9/30
+2026-01-11 11:46:51,783 | INFO |   train step 1/338 loss=0.7476 avg_step=0.018s
+2026-01-11 11:46:55,431 | INFO |   train step 21/338 loss=0.5899 avg_step=0.016s
+2026-01-11 11:47:00,333 | INFO |   train step 41/338 loss=0.5476 avg_step=0.016s
+2026-01-11 11:47:03,926 | INFO |   train step 61/338 loss=0.4929 avg_step=0.016s
+2026-01-11 11:47:08,850 | INFO |   train step 81/338 loss=0.6820 avg_step=0.016s
+2026-01-11 11:47:12,506 | INFO |   train step 101/338 loss=0.5426 avg_step=0.016s
+2026-01-11 11:47:17,351 | INFO |   train step 121/338 loss=0.8424 avg_step=0.015s
+2026-01-11 11:47:21,016 | INFO |   train step 141/338 loss=0.6091 avg_step=0.015s
+2026-01-11 11:47:24,568 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
+2026-01-11 11:47:24,574 | INFO |   val step 1/97 mean_dice=0.4979
+2026-01-11 11:47:28,287 | INFO | Epoch 9 summary | train_loss=0.6793 val_loss=0.7719 val_mean_dice=0.4854 lr=0.000100 gpu_mem_max_mb=156.3
+2026-01-11 11:47:28,288 | INFO | Epoch 10/30
+2026-01-11 11:47:30,272 | INFO |   train step 1/338 loss=0.6650 avg_step=0.017s
+2026-01-11 11:47:33,842 | INFO |   train step 21/338 loss=0.6363 avg_step=0.016s
+2026-01-11 11:47:38,896 | INFO |   train step 41/338 loss=0.5808 avg_step=0.015s
+2026-01-11 11:47:42,425 | INFO |   train step 61/338 loss=0.6689 avg_step=0.015s
+2026-01-11 11:47:47,496 | INFO |   train step 81/338 loss=0.6576 avg_step=0.015s
+2026-01-11 11:47:50,945 | INFO |   train step 101/338 loss=0.6954 avg_step=0.015s
+2026-01-11 11:47:56,108 | INFO |   train step 121/338 loss=0.5266 avg_step=0.015s
+2026-01-11 11:47:59,595 | INFO |   train step 141/338 loss=0.7204 avg_step=0.015s
+2026-01-11 11:48:03,110 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
+2026-01-11 11:48:03,111 | INFO |   val step 1/97 mean_dice=0.4879
+2026-01-11 11:48:06,799 | INFO | Epoch 10 summary | train_loss=0.6782 val_loss=0.7519 val_mean_dice=0.4859 lr=0.000100 gpu_mem_max_mb=156.3
+2026-01-11 11:48:12,077 | INFO | Epoch 11/30
+2026-01-11 11:48:13,889 | INFO |   train step 1/338 loss=0.9832 avg_step=0.018s
+2026-01-11 11:48:17,462 | INFO |   train step 21/338 loss=0.6402 avg_step=0.015s
+2026-01-11 11:48:22,362 | INFO |   train step 41/338 loss=0.7583 avg_step=0.015s
+2026-01-11 11:48:25,941 | INFO |   train step 61/338 loss=0.7239 avg_step=0.015s
+2026-01-11 11:48:30,830 | INFO |   train step 81/338 loss=0.8482 avg_step=0.015s
+2026-01-11 11:48:34,426 | INFO |   train step 101/338 loss=0.5220 avg_step=0.015s
+2026-01-11 11:48:39,519 | INFO |   train step 121/338 loss=0.5982 avg_step=0.015s
+2026-01-11 11:48:43,087 | INFO |   train step 141/338 loss=0.6821 avg_step=0.015s
+2026-01-11 11:48:46,603 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
+2026-01-11 11:48:46,604 | INFO |   val step 1/97 mean_dice=0.4859
+2026-01-11 11:48:50,215 | INFO | Epoch 11 summary | train_loss=0.6896 val_loss=0.6800 val_mean_dice=0.5200 lr=0.000100 gpu_mem_max_mb=156.3
+2026-01-11 11:48:50,215 | INFO | Epoch 12/30
+2026-01-11 11:48:52,190 | INFO |   train step 1/338 loss=0.9187 avg_step=0.016s
+2026-01-11 11:48:55,713 | INFO |   train step 21/338 loss=0.6186 avg_step=0.015s
+2026-01-11 11:49:00,779 | INFO |   train step 41/338 loss=0.5990 avg_step=0.015s
+2026-01-11 11:49:04,212 | INFO |   train step 61/338 loss=0.6308 avg_step=0.015s
+2026-01-11 11:49:09,235 | INFO |   train step 81/338 loss=0.6042 avg_step=0.015s
+2026-01-11 11:49:12,673 | INFO |   train step 101/338 loss=0.6867 avg_step=0.015s
+2026-01-11 11:49:17,732 | INFO |   train step 121/338 loss=0.9499 avg_step=0.015s
+2026-01-11 11:49:21,208 | INFO |   train step 141/338 loss=0.6334 avg_step=0.015s
+2026-01-11 11:49:24,741 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
+2026-01-11 11:49:24,744 | INFO |   val step 1/97 mean_dice=0.4793
+2026-01-11 11:49:28,441 | INFO | Epoch 12 summary | train_loss=0.7034 val_loss=0.6981 val_mean_dice=0.4894 lr=0.000100 gpu_mem_max_mb=156.3
+2026-01-11 11:49:28,442 | INFO | Epoch 13/30
+2026-01-11 11:49:30,291 | INFO |   train step 1/338 loss=0.6559 avg_step=0.017s
+2026-01-11 11:49:33,829 | INFO |   train step 21/338 loss=0.7990 avg_step=0.016s
+2026-01-11 11:49:38,774 | INFO |   train step 41/338 loss=0.7386 avg_step=0.016s
+2026-01-11 11:49:42,301 | INFO |   train step 61/338 loss=0.8434 avg_step=0.016s
+2026-01-11 11:49:47,363 | INFO |   train step 81/338 loss=0.5186 avg_step=0.016s
+2026-01-11 11:49:50,835 | INFO |   train step 101/338 loss=0.8107 avg_step=0.015s
+2026-01-11 11:49:55,930 | INFO |   train step 121/338 loss=0.5511 avg_step=0.015s
+2026-01-11 11:49:59,415 | INFO |   train step 141/338 loss=0.6058 avg_step=0.015s
+2026-01-11 11:50:02,940 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
+2026-01-11 11:50:02,941 | INFO |   val step 1/97 mean_dice=0.4926
+2026-01-11 11:50:06,617 | INFO | Epoch 13 summary | train_loss=0.6924 val_loss=0.6934 val_mean_dice=0.4834 lr=0.000100 gpu_mem_max_mb=156.3
+2026-01-11 11:50:06,617 | INFO | Epoch 14/30
+2026-01-11 11:50:08,381 | INFO |   train step 1/338 loss=0.6233 avg_step=0.022s
+2026-01-11 11:50:11,999 | INFO |   train step 21/338 loss=0.4383 avg_step=0.017s
+2026-01-11 11:50:16,980 | INFO |   train step 41/338 loss=0.8654 avg_step=0.015s
+2026-01-11 11:50:20,623 | INFO |   train step 61/338 loss=0.6502 avg_step=0.015s
+2026-01-11 11:50:25,552 | INFO |   train step 81/338 loss=0.6050 avg_step=0.015s
+2026-01-11 11:50:29,151 | INFO |   train step 101/338 loss=0.5908 avg_step=0.015s
+2026-01-11 11:50:34,002 | INFO |   train step 121/338 loss=0.6948 avg_step=0.015s
+2026-01-11 11:50:37,634 | INFO |   train step 141/338 loss=0.6000 avg_step=0.016s
+2026-01-11 11:50:41,177 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
+2026-01-11 11:50:41,178 | INFO |   val step 1/97 mean_dice=0.5823
+2026-01-11 11:50:44,985 | INFO | Epoch 14 summary | train_loss=0.6951 val_loss=0.6657 val_mean_dice=0.5071 lr=0.000100 gpu_mem_max_mb=156.3
+2026-01-11 11:50:44,985 | INFO | Epoch 15/30
+2026-01-11 11:50:46,777 | INFO |   train step 1/338 loss=0.5113 avg_step=0.019s
+2026-01-11 11:50:50,393 | INFO |   train step 21/338 loss=0.4622 avg_step=0.016s
+2026-01-11 11:50:55,461 | INFO |   train step 41/338 loss=0.6405 avg_step=0.015s
+2026-01-11 11:50:58,896 | INFO |   train step 61/338 loss=0.8481 avg_step=0.015s
+2026-01-11 11:51:04,000 | INFO |   train step 81/338 loss=0.7083 avg_step=0.015s
+2026-01-11 11:51:07,437 | INFO |   train step 101/338 loss=0.6069 avg_step=0.015s
+2026-01-11 11:51:12,468 | INFO |   train step 121/338 loss=0.5280 avg_step=0.015s
+2026-01-11 11:51:15,971 | INFO |   train step 141/338 loss=0.6022 avg_step=0.015s
+2026-01-11 11:51:19,543 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
+2026-01-11 11:51:19,543 | INFO |   val step 1/97 mean_dice=0.4927
+2026-01-11 11:51:23,222 | INFO | Epoch 15 summary | train_loss=0.6581 val_loss=0.7064 val_mean_dice=0.5079 lr=0.000100 gpu_mem_max_mb=156.3
+2026-01-11 11:51:23,223 | INFO | Epoch 16/30
+2026-01-11 11:51:25,164 | INFO |   train step 1/338 loss=0.5307 avg_step=0.018s
+2026-01-11 11:51:28,733 | INFO |   train step 21/338 loss=0.6503 avg_step=0.015s
+2026-01-11 11:51:33,639 | INFO |   train step 41/338 loss=0.7537 avg_step=0.015s
+2026-01-11 11:51:37,249 | INFO |   train step 61/338 loss=0.8779 avg_step=0.015s
+2026-01-11 11:51:42,147 | INFO |   train step 81/338 loss=0.5636 avg_step=0.015s
+2026-01-11 11:51:45,784 | INFO |   train step 101/338 loss=0.6409 avg_step=0.015s
+2026-01-11 11:51:50,453 | INFO |   train step 121/338 loss=0.5279 avg_step=0.015s
+2026-01-11 11:51:54,364 | INFO |   train step 141/338 loss=0.6848 avg_step=0.015s
+2026-01-11 11:51:57,870 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
+2026-01-11 11:51:57,871 | INFO |   val step 1/97 mean_dice=0.4867
+2026-01-11 11:52:01,542 | INFO | Epoch 16 summary | train_loss=0.6831 val_loss=0.6630 val_mean_dice=0.4938 lr=0.000100 gpu_mem_max_mb=156.3
+2026-01-11 11:52:01,542 | INFO | Epoch 17/30
+2026-01-11 11:52:03,347 | INFO |   train step 1/338 loss=0.6426 avg_step=0.017s
+2026-01-11 11:52:06,854 | INFO |   train step 21/338 loss=0.5938 avg_step=0.015s
+2026-01-11 11:52:11,881 | INFO |   train step 41/338 loss=0.8461 avg_step=0.016s
+2026-01-11 11:52:15,436 | INFO |   train step 61/338 loss=0.8948 avg_step=0.015s
+2026-01-11 11:52:20,336 | INFO |   train step 81/338 loss=0.7701 avg_step=0.015s
+2026-01-11 11:52:23,871 | INFO |   train step 101/338 loss=0.5355 avg_step=0.015s
+2026-01-11 11:52:28,847 | INFO |   train step 121/338 loss=0.6314 avg_step=0.015s
+2026-01-11 11:52:32,532 | INFO |   train step 141/338 loss=0.5755 avg_step=0.015s
+2026-01-11 11:52:36,079 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
+2026-01-11 11:52:36,080 | INFO |   val step 1/97 mean_dice=0.5088
+2026-01-11 11:52:39,776 | INFO | Epoch 17 summary | train_loss=0.7015 val_loss=0.6392 val_mean_dice=0.4971 lr=0.000100 gpu_mem_max_mb=156.3
+2026-01-11 11:52:39,776 | INFO | Epoch 18/30
+2026-01-11 11:52:41,623 | INFO |   train step 1/338 loss=0.5697 avg_step=0.021s
+2026-01-11 11:52:45,186 | INFO |   train step 21/338 loss=0.5105 avg_step=0.015s
+2026-01-11 11:52:50,191 | INFO |   train step 41/338 loss=0.7467 avg_step=0.015s
+2026-01-11 11:52:53,640 | INFO |   train step 61/338 loss=0.4802 avg_step=0.015s
+2026-01-11 11:52:58,609 | INFO |   train step 81/338 loss=0.7368 avg_step=0.015s
+2026-01-11 11:53:02,024 | INFO |   train step 101/338 loss=0.5399 avg_step=0.015s
+2026-01-11 11:53:06,925 | INFO |   train step 121/338 loss=0.6179 avg_step=0.015s
+2026-01-11 11:53:10,477 | INFO |   train step 141/338 loss=0.7099 avg_step=0.015s
+2026-01-11 11:53:14,289 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
+2026-01-11 11:53:14,290 | INFO |   val step 1/97 mean_dice=0.4852
+2026-01-11 11:53:17,954 | INFO | Epoch 18 summary | train_loss=0.6696 val_loss=0.7085 val_mean_dice=0.4891 lr=0.000100 gpu_mem_max_mb=156.3
+2026-01-11 11:53:17,954 | INFO | Epoch 19/30
+2026-01-11 11:53:19,871 | INFO |   train step 1/338 loss=0.5147 avg_step=0.017s
+2026-01-11 11:53:23,365 | INFO |   train step 21/338 loss=0.5885 avg_step=0.015s
+2026-01-11 11:53:28,400 | INFO |   train step 41/338 loss=0.6442 avg_step=0.015s
+2026-01-11 11:53:31,821 | INFO |   train step 61/338 loss=0.4722 avg_step=0.015s
+2026-01-11 11:53:36,862 | INFO |   train step 81/338 loss=0.6970 avg_step=0.015s
+2026-01-11 11:53:40,334 | INFO |   train step 101/338 loss=0.8724 avg_step=0.015s
+2026-01-11 11:53:45,354 | INFO |   train step 121/338 loss=0.5630 avg_step=0.015s
+2026-01-11 11:53:48,913 | INFO |   train step 141/338 loss=0.5951 avg_step=0.015s
+2026-01-11 11:53:52,540 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
+2026-01-11 11:53:52,541 | INFO |   val step 1/97 mean_dice=0.4873
+2026-01-11 11:53:56,163 | INFO | Epoch 19 summary | train_loss=0.6796 val_loss=0.6571 val_mean_dice=0.5437 lr=0.000100 gpu_mem_max_mb=156.3
+2026-01-11 11:53:56,181 | INFO | Epoch 20/30
+2026-01-11 11:53:57,999 | INFO |   train step 1/338 loss=0.6446 avg_step=0.020s
+2026-01-11 11:54:01,596 | INFO |   train step 21/338 loss=0.5193 avg_step=0.016s
+2026-01-11 11:54:06,638 | INFO |   train step 41/338 loss=0.9239 avg_step=0.015s
+2026-01-11 11:54:10,013 | INFO |   train step 61/338 loss=0.9187 avg_step=0.016s
+2026-01-11 11:54:15,027 | INFO |   train step 81/338 loss=0.5404 avg_step=0.016s
+2026-01-11 11:54:18,614 | INFO |   train step 101/338 loss=0.6406 avg_step=0.016s
+2026-01-11 11:54:23,687 | INFO |   train step 121/338 loss=0.4910 avg_step=0.015s
+2026-01-11 11:54:27,094 | INFO |   train step 141/338 loss=0.6336 avg_step=0.015s
+2026-01-11 11:54:30,611 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
+2026-01-11 11:54:30,611 | INFO |   val step 1/97 mean_dice=0.4920
+2026-01-11 11:54:34,312 | INFO | Epoch 20 summary | train_loss=0.6720 val_loss=0.7149 val_mean_dice=0.4973 lr=0.000100 gpu_mem_max_mb=156.3
+2026-01-11 11:54:39,638 | INFO | Epoch 21/30
+2026-01-11 11:54:41,571 | INFO |   train step 1/338 loss=0.6274 avg_step=0.020s
+2026-01-11 11:54:45,032 | INFO |   train step 21/338 loss=0.5802 avg_step=0.015s
+2026-01-11 11:54:50,043 | INFO |   train step 41/338 loss=0.7285 avg_step=0.015s
+2026-01-11 11:54:53,510 | INFO |   train step 61/338 loss=0.4420 avg_step=0.015s
+2026-01-11 11:54:58,564 | INFO |   train step 81/338 loss=0.6514 avg_step=0.015s
+2026-01-11 11:55:02,085 | INFO |   train step 101/338 loss=0.6439 avg_step=0.015s
+2026-01-11 11:55:07,194 | INFO |   train step 121/338 loss=0.5508 avg_step=0.015s
+2026-01-11 11:55:10,649 | INFO |   train step 141/338 loss=0.4949 avg_step=0.015s
+2026-01-11 11:55:14,181 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
+2026-01-11 11:55:14,182 | INFO |   val step 1/97 mean_dice=0.4919
+2026-01-11 11:55:17,836 | INFO | Epoch 21 summary | train_loss=0.6515 val_loss=0.6743 val_mean_dice=0.4885 lr=0.000100 gpu_mem_max_mb=156.3
+2026-01-11 11:55:17,837 | INFO | Epoch 22/30
+2026-01-11 11:55:19,587 | INFO |   train step 1/338 loss=0.8740 avg_step=0.018s
+2026-01-11 11:55:23,381 | INFO |   train step 21/338 loss=0.6516 avg_step=0.017s
+2026-01-11 11:55:28,196 | INFO |   train step 41/338 loss=0.5986 avg_step=0.016s
+2026-01-11 11:55:31,909 | INFO |   train step 61/338 loss=0.6456 avg_step=0.016s
+2026-01-11 11:55:36,707 | INFO |   train step 81/338 loss=0.5480 avg_step=0.016s
+2026-01-11 11:55:40,364 | INFO |   train step 101/338 loss=0.7437 avg_step=0.016s
+2026-01-11 11:55:45,127 | INFO |   train step 121/338 loss=0.6819 avg_step=0.016s
+2026-01-11 11:55:48,956 | INFO |   train step 141/338 loss=0.6178 avg_step=0.016s
+2026-01-11 11:55:52,574 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
+2026-01-11 11:55:52,575 | INFO |   val step 1/97 mean_dice=0.4985
+2026-01-11 11:55:56,273 | INFO | Epoch 22 summary | train_loss=0.6848 val_loss=0.6951 val_mean_dice=0.5023 lr=0.000100 gpu_mem_max_mb=156.3
+2026-01-11 11:55:56,274 | INFO | Epoch 23/30
+2026-01-11 11:55:58,103 | INFO |   train step 1/338 loss=0.6217 avg_step=0.021s
+2026-01-11 11:56:01,624 | INFO |   train step 21/338 loss=0.5807 avg_step=0.016s
+2026-01-11 11:56:06,702 | INFO |   train step 41/338 loss=0.4267 avg_step=0.016s
+2026-01-11 11:56:10,157 | INFO |   train step 61/338 loss=0.7523 avg_step=0.016s
+2026-01-11 11:56:15,217 | INFO |   train step 81/338 loss=1.0319 avg_step=0.015s
+2026-01-11 11:56:18,671 | INFO |   train step 101/338 loss=0.7658 avg_step=0.015s
+2026-01-11 11:56:23,680 | INFO |   train step 121/338 loss=0.7247 avg_step=0.015s
+2026-01-11 11:56:27,199 | INFO |   train step 141/338 loss=0.5890 avg_step=0.015s
+2026-01-11 11:56:30,715 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
+2026-01-11 11:56:30,716 | INFO |   val step 1/97 mean_dice=1.0000
+2026-01-11 11:56:34,417 | INFO | Epoch 23 summary | train_loss=0.6608 val_loss=0.6115 val_mean_dice=0.5219 lr=0.000100 gpu_mem_max_mb=156.3
+2026-01-11 11:56:34,417 | INFO | Epoch 24/30
+2026-01-11 11:56:36,300 | INFO |   train step 1/338 loss=0.7694 avg_step=0.024s
+2026-01-11 11:56:39,757 | INFO |   train step 21/338 loss=0.5142 avg_step=0.015s
+2026-01-11 11:56:44,584 | INFO |   train step 41/338 loss=0.5346 avg_step=0.015s
+2026-01-11 11:56:48,400 | INFO |   train step 61/338 loss=0.5131 avg_step=0.015s
+2026-01-11 11:56:53,163 | INFO |   train step 81/338 loss=1.0298 avg_step=0.015s
+2026-01-11 11:56:57,067 | INFO |   train step 101/338 loss=0.9332 avg_step=0.016s
+2026-01-11 11:57:01,580 | INFO |   train step 121/338 loss=0.8722 avg_step=0.016s
+2026-01-11 11:57:05,555 | INFO |   train step 141/338 loss=0.6443 avg_step=0.016s
+2026-01-11 11:57:09,030 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
+2026-01-11 11:57:09,031 | INFO |   val step 1/97 mean_dice=0.4967
+2026-01-11 11:57:12,680 | INFO | Epoch 24 summary | train_loss=0.6780 val_loss=0.6507 val_mean_dice=0.4937 lr=0.000100 gpu_mem_max_mb=156.3
+2026-01-11 11:57:12,680 | INFO | Epoch 25/30
+2026-01-11 11:57:14,560 | INFO |   train step 1/338 loss=0.5316 avg_step=0.017s
+2026-01-11 11:57:18,070 | INFO |   train step 21/338 loss=0.5904 avg_step=0.016s
+2026-01-11 11:57:23,162 | INFO |   train step 41/338 loss=0.6528 avg_step=0.015s
+2026-01-11 11:57:26,728 | INFO |   train step 61/338 loss=0.8448 avg_step=0.015s
+2026-01-11 11:57:31,770 | INFO |   train step 81/338 loss=0.4804 avg_step=0.015s
+2026-01-11 11:57:35,221 | INFO |   train step 101/338 loss=0.6523 avg_step=0.015s
+2026-01-11 11:57:40,138 | INFO |   train step 121/338 loss=0.7898 avg_step=0.015s
+2026-01-11 11:57:43,687 | INFO |   train step 141/338 loss=0.5803 avg_step=0.016s
+2026-01-11 11:57:47,250 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
+2026-01-11 11:57:47,251 | INFO |   val step 1/97 mean_dice=0.4981
+2026-01-11 11:57:50,900 | INFO | Epoch 25 summary | train_loss=0.6461 val_loss=0.6718 val_mean_dice=0.5400 lr=0.000100 gpu_mem_max_mb=156.3
+2026-01-11 11:57:50,901 | INFO | Epoch 26/30
+2026-01-11 11:57:52,791 | INFO |   train step 1/338 loss=0.5135 avg_step=0.017s
+2026-01-11 11:57:56,317 | INFO |   train step 21/338 loss=0.7238 avg_step=0.015s
+2026-01-11 11:58:01,327 | INFO |   train step 41/338 loss=0.6745 avg_step=0.015s
+2026-01-11 11:58:04,831 | INFO |   train step 61/338 loss=0.7019 avg_step=0.015s
+2026-01-11 11:58:09,863 | INFO |   train step 81/338 loss=0.5230 avg_step=0.015s
+2026-01-11 11:58:13,248 | INFO |   train step 101/338 loss=0.8266 avg_step=0.015s
+2026-01-11 11:58:18,360 | INFO |   train step 121/338 loss=0.6552 avg_step=0.015s
+2026-01-11 11:58:21,820 | INFO |   train step 141/338 loss=0.5098 avg_step=0.015s
+2026-01-11 11:58:25,343 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
+2026-01-11 11:58:25,344 | INFO |   val step 1/97 mean_dice=0.4970
+2026-01-11 11:58:28,984 | INFO | Epoch 26 summary | train_loss=0.6603 val_loss=0.6318 val_mean_dice=0.4917 lr=0.000100 gpu_mem_max_mb=156.3
+2026-01-11 11:58:28,985 | INFO | Epoch 27/30
+2026-01-11 11:58:30,730 | INFO |   train step 1/338 loss=0.6290 avg_step=0.018s
+2026-01-11 11:58:34,233 | INFO |   train step 21/338 loss=0.4970 avg_step=0.015s
+2026-01-11 11:58:39,209 | INFO |   train step 41/338 loss=0.6418 avg_step=0.015s
+2026-01-11 11:58:42,759 | INFO |   train step 61/338 loss=0.5883 avg_step=0.015s
+2026-01-11 11:58:47,692 | INFO |   train step 81/338 loss=0.6044 avg_step=0.016s
+2026-01-11 11:58:51,526 | INFO |   train step 101/338 loss=0.6558 avg_step=0.017s
+2026-01-11 11:58:56,193 | INFO |   train step 121/338 loss=0.5933 avg_step=0.016s
+2026-01-11 11:58:59,929 | INFO |   train step 141/338 loss=0.5802 avg_step=0.016s
+2026-01-11 11:59:03,418 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
+2026-01-11 11:59:03,419 | INFO |   val step 1/97 mean_dice=0.4966
+2026-01-11 11:59:07,097 | INFO | Epoch 27 summary | train_loss=0.6777 val_loss=0.6549 val_mean_dice=0.4863 lr=0.000100 gpu_mem_max_mb=156.3
+2026-01-11 11:59:07,098 | INFO | Epoch 28/30
+2026-01-11 11:59:09,225 | INFO |   train step 1/338 loss=0.6211 avg_step=0.017s
+2026-01-11 11:59:12,730 | INFO |   train step 21/338 loss=0.6403 avg_step=0.015s
+2026-01-11 11:59:17,776 | INFO |   train step 41/338 loss=0.5357 avg_step=0.015s
+2026-01-11 11:59:21,265 | INFO |   train step 61/338 loss=0.5683 avg_step=0.015s
+2026-01-11 11:59:26,357 | INFO |   train step 81/338 loss=0.6882 avg_step=0.015s
+2026-01-11 11:59:29,804 | INFO |   train step 101/338 loss=0.6655 avg_step=0.015s
+2026-01-11 11:59:34,823 | INFO |   train step 121/338 loss=0.7002 avg_step=0.015s
+2026-01-11 11:59:38,302 | INFO |   train step 141/338 loss=0.6047 avg_step=0.015s
+2026-01-11 11:59:41,810 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
+2026-01-11 11:59:41,811 | INFO |   val step 1/97 mean_dice=0.4866
+2026-01-11 11:59:45,457 | INFO | Epoch 28 summary | train_loss=0.6196 val_loss=0.7216 val_mean_dice=0.4892 lr=0.000100 gpu_mem_max_mb=156.3
+2026-01-11 11:59:45,457 | INFO | Epoch 29/30
+2026-01-11 11:59:47,247 | INFO |   train step 1/338 loss=0.6566 avg_step=0.017s
+2026-01-11 11:59:50,819 | INFO |   train step 21/338 loss=0.5151 avg_step=0.015s
+2026-01-11 11:59:55,727 | INFO |   train step 41/338 loss=0.8800 avg_step=0.015s
+2026-01-11 11:59:59,290 | INFO |   train step 61/338 loss=0.6072 avg_step=0.015s
+2026-01-11 12:00:04,304 | INFO |   train step 81/338 loss=0.6179 avg_step=0.015s
+2026-01-11 12:00:07,854 | INFO |   train step 101/338 loss=0.6118 avg_step=0.015s
+2026-01-11 12:00:12,857 | INFO |   train step 121/338 loss=0.6748 avg_step=0.015s
+2026-01-11 12:00:16,363 | INFO |   train step 141/338 loss=0.5138 avg_step=0.015s
+2026-01-11 12:00:19,930 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
+2026-01-11 12:00:19,931 | INFO |   val step 1/97 mean_dice=0.4972
+2026-01-11 12:00:23,572 | INFO | Epoch 29 summary | train_loss=0.6368 val_loss=0.6400 val_mean_dice=0.4923 lr=0.000100 gpu_mem_max_mb=156.3
+2026-01-11 12:00:23,573 | INFO | Epoch 30/30
+2026-01-11 12:00:25,358 | INFO |   train step 1/338 loss=0.6003 avg_step=0.016s
+2026-01-11 12:00:28,956 | INFO |   train step 21/338 loss=0.6230 avg_step=0.015s
+2026-01-11 12:00:33,876 | INFO |   train step 41/338 loss=0.7127 avg_step=0.016s
+2026-01-11 12:00:37,527 | INFO |   train step 61/338 loss=1.1024 avg_step=0.015s
+2026-01-11 12:00:42,452 | INFO |   train step 81/338 loss=0.8125 avg_step=0.015s
+2026-01-11 12:00:46,076 | INFO |   train step 101/338 loss=0.7457 avg_step=0.015s
+2026-01-11 12:00:50,851 | INFO |   train step 121/338 loss=0.4016 avg_step=0.015s
+2026-01-11 12:00:54,651 | INFO |   train step 141/338 loss=0.3962 avg_step=0.015s
+2026-01-11 12:00:58,293 | INFO | val shapes | images=(1, 4, 96, 96, 96) labels=(1, 2, 96, 96, 96) logits=(1, 2, 96, 96, 96) preds=(1, 2, 96, 96, 96)
+2026-01-11 12:00:58,293 | INFO |   val step 1/97 mean_dice=0.4940
+2026-01-11 12:01:01,894 | INFO | Epoch 30 summary | train_loss=0.6652 val_loss=0.6132 val_mean_dice=0.5003 lr=0.000100 gpu_mem_max_mb=156.3
+2026-01-11 12:01:07,185 | INFO | Best val mean Dice: 0.5437
+2026-01-11 12:01:07,191 | INFO | Run directory: outputs/runs/20260111_114141
 
 --- brain-tumor-run/train_config_resolved.yaml ---
 data:
@@ -1002,6 +868,117 @@ inference:
   overlap: 0.5
   sw_batch_size: 2
 
+--- brain-tumor-run/vis/.DS_Store ---
+(binary file, contents omitted)
+
+--- brain-tumor-run/vis/epoch_10/case_0_gt.png ---
+(binary file, contents omitted)
+
+--- brain-tumor-run/vis/epoch_10/case_0_input.png ---
+(binary file, contents omitted)
+
+--- brain-tumor-run/vis/epoch_10/case_0_overlay.png ---
+(binary file, contents omitted)
+
+--- brain-tumor-run/vis/epoch_10/case_0_pred.png ---
+(binary file, contents omitted)
+
+--- brain-tumor-run/vis/epoch_10/case_1_gt.png ---
+(binary file, contents omitted)
+
+--- brain-tumor-run/vis/epoch_10/case_1_input.png ---
+(binary file, contents omitted)
+
+--- brain-tumor-run/vis/epoch_10/case_1_overlay.png ---
+(binary file, contents omitted)
+
+--- brain-tumor-run/vis/epoch_10/case_1_pred.png ---
+(binary file, contents omitted)
+
+--- brain-tumor-run/vis/epoch_10/case_2_gt.png ---
+(binary file, contents omitted)
+
+--- brain-tumor-run/vis/epoch_10/case_2_input.png ---
+(binary file, contents omitted)
+
+--- brain-tumor-run/vis/epoch_10/case_2_overlay.png ---
+(binary file, contents omitted)
+
+--- brain-tumor-run/vis/epoch_10/case_2_pred.png ---
+(binary file, contents omitted)
+
+--- brain-tumor-run/vis/epoch_20/case_0_gt.png ---
+(binary file, contents omitted)
+
+--- brain-tumor-run/vis/epoch_20/case_0_input.png ---
+(binary file, contents omitted)
+
+--- brain-tumor-run/vis/epoch_20/case_0_overlay.png ---
+(binary file, contents omitted)
+
+--- brain-tumor-run/vis/epoch_20/case_0_pred.png ---
+(binary file, contents omitted)
+
+--- brain-tumor-run/vis/epoch_20/case_1_gt.png ---
+(binary file, contents omitted)
+
+--- brain-tumor-run/vis/epoch_20/case_1_input.png ---
+(binary file, contents omitted)
+
+--- brain-tumor-run/vis/epoch_20/case_1_overlay.png ---
+(binary file, contents omitted)
+
+--- brain-tumor-run/vis/epoch_20/case_1_pred.png ---
+(binary file, contents omitted)
+
+--- brain-tumor-run/vis/epoch_20/case_2_gt.png ---
+(binary file, contents omitted)
+
+--- brain-tumor-run/vis/epoch_20/case_2_input.png ---
+(binary file, contents omitted)
+
+--- brain-tumor-run/vis/epoch_20/case_2_overlay.png ---
+(binary file, contents omitted)
+
+--- brain-tumor-run/vis/epoch_20/case_2_pred.png ---
+(binary file, contents omitted)
+
+--- brain-tumor-run/vis/epoch_30/case_0_gt.png ---
+(binary file, contents omitted)
+
+--- brain-tumor-run/vis/epoch_30/case_0_input.png ---
+(binary file, contents omitted)
+
+--- brain-tumor-run/vis/epoch_30/case_0_overlay.png ---
+(binary file, contents omitted)
+
+--- brain-tumor-run/vis/epoch_30/case_0_pred.png ---
+(binary file, contents omitted)
+
+--- brain-tumor-run/vis/epoch_30/case_1_gt.png ---
+(binary file, contents omitted)
+
+--- brain-tumor-run/vis/epoch_30/case_1_input.png ---
+(binary file, contents omitted)
+
+--- brain-tumor-run/vis/epoch_30/case_1_overlay.png ---
+(binary file, contents omitted)
+
+--- brain-tumor-run/vis/epoch_30/case_1_pred.png ---
+(binary file, contents omitted)
+
+--- brain-tumor-run/vis/epoch_30/case_2_gt.png ---
+(binary file, contents omitted)
+
+--- brain-tumor-run/vis/epoch_30/case_2_input.png ---
+(binary file, contents omitted)
+
+--- brain-tumor-run/vis/epoch_30/case_2_overlay.png ---
+(binary file, contents omitted)
+
+--- brain-tumor-run/vis/epoch_30/case_2_pred.png ---
+(binary file, contents omitted)
+
 --- configs/config.yaml ---
 # Default configuration for brain tumor segmentation
 
@@ -1051,9 +1028,10 @@ data:
     test: null
   label_mode: binary
   class_names: [background, tumor]
-  roi_size: [96, 96, 96]
-  pos_ratio: 0.7
+  roi_size: [128, 128, 128]
+  pos_ratio: 0.9
   max_pos_attempts: 10
+  min_pos_voxel_frac: 0.01
   percentiles: [0.5, 99.5]
 
 model:
@@ -1079,12 +1057,72 @@ training:
   debug_shapes: false
   ignore_empty_foreground: true
   log_sanity_steps: 50
+  prediction_threshold: 0.5
+  pos_weight: 5.0
 
 inference:
   roi_size: [96, 96, 96]
   overlap: 0.5
   sw_batch_size: 2
   ignore_empty_foreground: true
+
+--- configs/config_3d_baseline.yaml ---
+# 3D baseline configuration for MSD Task01_BrainTumour (v1.0.0)
+
+data:
+  root: ./data/raw/msd_task01/Task01_BrainTumour
+  train_ratio: 0.7
+  val_ratio: 0.2
+  seed: 42
+  list_files:
+    train: null
+    val: null
+    test: null
+  label_mode: binary
+  class_names: [background, tumor]
+  roi_size: [96, 96, 96]
+  pos_ratio: 0.9
+  max_pos_attempts: 10
+  min_pos_voxel_frac: 0.01
+  percentiles: [0.5, 99.5]
+
+model:
+  in_channels: 4
+  channels: [16, 32, 64, 128, 128]
+  strides: [2, 2, 2, 2]
+  num_res_units: 1
+  norm: instance
+
+training:
+  batch_size: 1
+  learning_rate: 0.0001
+  max_epochs: 20
+  num_workers: 8
+  seed: 42
+  deterministic: false
+  output_dir: ./outputs/runs
+  limit_train_batches: 250
+  limit_val_batches: 50
+  log_interval: 20
+  vis_interval: 10
+  max_vis_cases: 3
+  debug_shapes: false
+  ignore_empty_foreground: true
+  log_sanity_steps: 50
+  prediction_threshold: 0.5
+  pos_weight: 5.0
+
+inference:
+  roi_size: [96, 96, 96]
+  overlap: 0.5
+  sw_batch_size: 2
+  ignore_empty_foreground: true
+
+--- docs/assets/baseline_curves.png ---
+(binary file, contents omitted)
+
+--- docs/assets/baseline_examples.png ---
+(binary file, contents omitted)
 
 --- requirements-3d.txt ---
 torch
@@ -1107,6 +1145,180 @@ fastapi
 uvicorn
 python-multipart
 pytest
+
+--- scripts/debug_alignment.py ---
+import argparse
+from pathlib import Path
+
+import numpy as np
+from PIL import Image
+
+from src.data.msd_task01_3d import MSDTask01Dataset3D, list_msd_task01_cases
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Debug ROI alignment on a single patch")
+    parser.add_argument(
+        "--dataset-root",
+        default="./data/raw/msd_task01/Task01_BrainTumour",
+        help="MSD Task01 root with imagesTr/labelsTr",
+    )
+    parser.add_argument("--roi-size", default="96,96,96", help="ROI size as D,H,W")
+    parser.add_argument("--case-index", type=int, default=0, help="Case index from imagesTr")
+    parser.add_argument("--seed", type=int, default=42, help="Random seed")
+    parser.add_argument("--pos-ratio", type=float, default=1.0, help="Probability of tumor-centered sampling")
+    parser.add_argument("--max-pos-attempts", type=int, default=10, help="Max resamples for tumor patches")
+    parser.add_argument("--out-dir", default="outputs/debug_alignment", help="Output folder")
+    parser.add_argument("--channel", type=int, default=0, help="Which modality to visualize")
+    return parser.parse_args()
+
+
+def _normalize_slice(slice_array: np.ndarray) -> np.ndarray:
+    vmin = float(slice_array.min())
+    vmax = float(slice_array.max())
+    if vmax <= vmin:
+        return np.zeros_like(slice_array, dtype=np.uint8)
+    scaled = (slice_array - vmin) / (vmax - vmin)
+    return (scaled * 255.0).astype(np.uint8)
+
+
+def main():
+    args = parse_args()
+    roi_size = tuple(int(x) for x in args.roi_size.split(","))
+    out_dir = Path(args.out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    cases = list_msd_task01_cases(Path(args.dataset_root))
+    case = cases[args.case_index]
+    ds = MSDTask01Dataset3D(
+        [case],
+        roi_size=roi_size,
+        label_mode="binary",
+        num_classes=2,
+        pos_ratio=args.pos_ratio,
+        percentiles=(0.5, 99.5),
+        mode="train",
+        seed=args.seed,
+        max_pos_attempts=args.max_pos_attempts,
+    )
+
+    img, lbl = ds[0]
+    print("image shape", tuple(img.shape), "label shape", tuple(lbl.shape))
+    print("label unique", np.unique(lbl.numpy()))
+    print("label sum", float(lbl.sum().item()))
+
+    gt = lbl[1].numpy()
+    areas = gt.sum(axis=(1, 2))
+    z = int(np.argmax(areas))
+    img_slice = img[args.channel, z].numpy()
+    gt_slice = gt[z]
+
+    img_slice = _normalize_slice(img_slice)
+    gt_slice = (gt_slice > 0).astype(np.uint8) * 255
+
+    overlay = np.stack([img_slice] * 3, axis=-1).astype(np.uint8)
+    overlay[gt_slice > 0, 1] = 255
+
+    Image.fromarray(img_slice).save(out_dir / "input.png")
+    Image.fromarray(gt_slice).save(out_dir / "gt.png")
+    Image.fromarray(overlay).save(out_dir / "overlay.png")
+    print(f"wrote {out_dir}")
+
+
+if __name__ == "__main__":
+    main()
+
+--- scripts/debug_label_permutation.py ---
+import argparse
+from itertools import permutations
+from pathlib import Path
+
+import nibabel as nib
+import numpy as np
+from PIL import Image
+
+from src.data.msd_task01_3d import _to_channel_first, list_msd_task01_cases, normalize_modalities
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Find label axis permutation that best aligns with images")
+    parser.add_argument(
+        "--dataset-root",
+        default="./data/raw/msd_task01/Task01_BrainTumour",
+        help="MSD Task01 root with imagesTr/labelsTr",
+    )
+    parser.add_argument("--case-index", type=int, default=0, help="Case index from imagesTr")
+    parser.add_argument("--channel", type=int, default=0, help="Which modality to visualize")
+    parser.add_argument("--out-dir", default="outputs/debug_alignment_perm", help="Output folder")
+    return parser.parse_args()
+
+
+def _normalize_slice(slice_array: np.ndarray) -> np.ndarray:
+    vmin = float(slice_array.min())
+    vmax = float(slice_array.max())
+    if vmax <= vmin:
+        return np.zeros_like(slice_array, dtype=np.uint8)
+    scaled = (slice_array - vmin) / (vmax - vmin)
+    return (scaled * 255.0).astype(np.uint8)
+
+
+def main():
+    args = parse_args()
+    out_dir = Path(args.out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    cases = list_msd_task01_cases(Path(args.dataset_root))
+    image_path, label_path = cases[args.case_index]
+    image = nib.load(str(image_path)).get_fdata().astype(np.float32)
+    label = nib.load(str(label_path)).get_fdata().astype(np.int64)
+
+    image = _to_channel_first(image)
+    image = normalize_modalities(image, (0.5, 99.5))
+    brain = image[args.channel]
+    mask = brain != 0
+    if mask.any():
+        thresh = np.percentile(brain[mask], 50)
+        brain_mask = brain > thresh
+    else:
+        brain_mask = brain > 0
+
+    perms = list(permutations((0, 1, 2)))
+    scores = []
+    for perm in perms:
+        lbl_perm = np.transpose(label, perm)
+        if lbl_perm.shape != brain.shape:
+            scores.append((perm, -1))
+            continue
+        overlap = (lbl_perm > 0) & brain_mask
+        scores.append((perm, int(overlap.sum())))
+
+    scores_sorted = sorted(scores, key=lambda x: x[1], reverse=True)
+    print("perm overlap scores:", scores_sorted)
+    best_perm, best_score = scores_sorted[0]
+    if best_score <= 0:
+        print("No positive overlap found.")
+        return
+
+    lbl_best = np.transpose(label, best_perm)
+    areas = lbl_best.sum(axis=(1, 2))
+    z = int(np.argmax(areas))
+    img_slice = brain[z]
+    gt_slice = lbl_best[z]
+
+    img_slice = _normalize_slice(img_slice)
+    gt_slice = (gt_slice > 0).astype(np.uint8) * 255
+
+    overlay = np.stack([img_slice] * 3, axis=-1).astype(np.uint8)
+    overlay[gt_slice > 0, 1] = 255
+
+    Image.fromarray(img_slice).save(out_dir / "input.png")
+    Image.fromarray(gt_slice).save(out_dir / "gt.png")
+    Image.fromarray(overlay).save(out_dir / "overlay.png")
+    print(f"best_perm={best_perm} wrote {out_dir}")
+
+
+if __name__ == "__main__":
+    main()
 
 --- scripts/download_msd_task01.py ---
 import argparse
@@ -1175,6 +1387,412 @@ def main():
     download_file(args.url, archive_path)
     extract_archive(archive_path, output_dir)
     print(f"Ready: {extracted_root}")
+
+
+if __name__ == "__main__":
+    main()
+
+--- scripts/make_readme_figures.py ---
+import argparse
+import csv
+from pathlib import Path
+from typing import List, Tuple
+
+import numpy as np
+from PIL import Image
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Export baseline figures for README")
+    parser.add_argument("--run-dir", required=True, help="Path to outputs/runs/<run_id>")
+    parser.add_argument("--max-cases", type=int, default=3, help="Max cases for grid")
+    parser.add_argument("--out-dir", default="docs/assets", help="Output directory for figures")
+    return parser.parse_args()
+
+
+def _load_image(path: Path) -> Image.Image:
+    return Image.open(path).convert("RGB")
+
+
+def _overlay(mask: Image.Image, base: Image.Image, color: Tuple[int, int, int]) -> Image.Image:
+    base_arr = np.array(base).astype(np.uint8)
+    mask_arr = np.array(mask.convert("L"))
+    overlay = base_arr.copy()
+    overlay[mask_arr > 0] = color
+    return Image.fromarray(overlay)
+
+
+def _select_latest_vis_dir(run_dir: Path) -> Path:
+    vis_root = run_dir / "vis"
+    if not vis_root.exists():
+        raise FileNotFoundError(f"No vis folder found in {run_dir}")
+    epochs = sorted(vis_root.glob("epoch_*"))
+    if not epochs:
+        raise FileNotFoundError(f"No epoch folders found in {vis_root}")
+    return epochs[-1]
+
+
+def _collect_cases(vis_dir: Path, max_cases: int) -> List[int]:
+    cases = []
+    for path in vis_dir.glob("case_*_input.png"):
+        name = path.stem
+        case_id = int(name.split("_")[1])
+        cases.append(case_id)
+    return sorted(cases)[:max_cases]
+
+
+def _make_grid(run_dir: Path, out_dir: Path, max_cases: int):
+    vis_dir = _select_latest_vis_dir(run_dir)
+    case_ids = _collect_cases(vis_dir, max_cases)
+    if not case_ids:
+        raise FileNotFoundError(f"No case images found in {vis_dir}")
+
+    rows = []
+    for case_id in case_ids:
+        input_img = _load_image(vis_dir / f"case_{case_id}_input.png")
+        gt_mask = Image.open(vis_dir / f"case_{case_id}_gt.png")
+        pred_mask = Image.open(vis_dir / f"case_{case_id}_pred.png")
+        gt_overlay = _overlay(gt_mask, input_img, (0, 255, 0))
+        pred_overlay = _overlay(pred_mask, input_img, (255, 0, 0))
+        row = Image.new("RGB", (input_img.width * 3, input_img.height))
+        row.paste(input_img, (0, 0))
+        row.paste(gt_overlay, (input_img.width, 0))
+        row.paste(pred_overlay, (input_img.width * 2, 0))
+        rows.append(row)
+
+    grid = Image.new("RGB", (rows[0].width, rows[0].height * len(rows)))
+    for idx, row in enumerate(rows):
+        grid.paste(row, (0, idx * row.height))
+
+    grid.save(out_dir / "baseline_examples.png")
+
+
+def _make_curves(run_dir: Path, out_dir: Path):
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    metrics_path = run_dir / "metrics.csv"
+    if not metrics_path.exists():
+        raise FileNotFoundError(f"metrics.csv not found in {run_dir}")
+
+    epochs = []
+    train_loss = []
+    val_loss = []
+    val_dice = []
+    with metrics_path.open("r", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            epochs.append(int(row["epoch"]))
+            train_loss.append(float(row.get("train_loss", 0)))
+            val_loss.append(float(row.get("val_loss", 0)))
+            val_dice.append(float(row.get("val_dice_tumor", row.get("val_foreground_dice", 0))))
+
+    fig, ax1 = plt.subplots(figsize=(8, 4))
+    ax1.plot(epochs, train_loss, label="train_loss")
+    ax1.plot(epochs, val_loss, label="val_loss")
+    ax1.set_xlabel("Epoch")
+    ax1.set_ylabel("Loss")
+    ax1.legend(loc="upper right")
+
+    ax2 = ax1.twinx()
+    ax2.plot(epochs, val_dice, color="green", label="val_dice_tumor")
+    ax2.set_ylabel("Dice")
+    ax2.legend(loc="lower right")
+
+    fig.tight_layout()
+    fig.savefig(out_dir / "baseline_curves.png", dpi=150)
+    plt.close(fig)
+
+
+def main():
+    args = parse_args()
+    run_dir = Path(args.run_dir).expanduser().resolve()
+    out_dir = Path(args.out_dir).expanduser().resolve()
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    _make_grid(run_dir, out_dir, args.max_cases)
+    _make_curves(run_dir, out_dir)
+    print(f"Wrote figures to {out_dir}")
+
+
+if __name__ == "__main__":
+    main()
+
+--- scripts/run_baseline_3d.sh ---
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PYTHON_BIN="${PYTHON_BIN:-python}"
+if ! command -v "${PYTHON_BIN}" >/dev/null 2>&1; then
+  if command -v python3 >/dev/null 2>&1; then
+    PYTHON_BIN="python3"
+  else
+    echo "ERROR: python executable not found." >&2
+    exit 1
+  fi
+fi
+CONFIG_PATH="${ROOT_DIR}/configs/config_3d_baseline.yaml"
+DATA_ROOT="${ROOT_DIR}/data/raw/msd_task01/Task01_BrainTumour"
+RUNS_DIR="${ROOT_DIR}/outputs/runs"
+BASELINE_DIR="${ROOT_DIR}/outputs/baseline_v1/$(date +%Y%m%d_%H%M%S)"
+
+if ! command -v nvidia-smi >/dev/null 2>&1; then
+  echo "ERROR: nvidia-smi not found. A CUDA-capable GPU is required." >&2
+  exit 1
+fi
+
+GPU_NAME="$(nvidia-smi --query-gpu=name --format=csv,noheader | head -n1 || true)"
+if [[ -z "${GPU_NAME}" ]]; then
+  echo "ERROR: Unable to detect GPU name via nvidia-smi." >&2
+  exit 1
+fi
+echo "GPU detected: ${GPU_NAME}"
+
+if [[ ! -d "${DATA_ROOT}/imagesTr" || ! -d "${DATA_ROOT}/labelsTr" ]]; then
+  echo "Dataset not found at ${DATA_ROOT}. Downloading MSD Task01..."
+  "${PYTHON_BIN}" "${ROOT_DIR}/scripts/download_msd_task01.py"
+fi
+
+echo "Running training with ${CONFIG_PATH}"
+"${PYTHON_BIN}" -m src.train_3d --config "${CONFIG_PATH}"
+
+LATEST_RUN="$(ls -td "${RUNS_DIR}"/* | head -n1)"
+if [[ -z "${LATEST_RUN}" || ! -d "${LATEST_RUN}" ]]; then
+  echo "ERROR: No run directory found in ${RUNS_DIR}." >&2
+  exit 1
+fi
+
+BEST_CHECKPOINT="${LATEST_RUN}/best.pt"
+if [[ ! -f "${BEST_CHECKPOINT}" ]]; then
+  echo "ERROR: best.pt not found at ${BEST_CHECKPOINT}." >&2
+  exit 1
+fi
+
+echo "Running evaluation with ${BEST_CHECKPOINT}"
+"${PYTHON_BIN}" -m src.eval_3d --config "${CONFIG_PATH}" --weights "${BEST_CHECKPOINT}"
+
+mkdir -p "${BASELINE_DIR}"
+
+cp "${CONFIG_PATH}" "${BASELINE_DIR}/config_3d_baseline.yaml"
+cp "${LATEST_RUN}/train_config_resolved.yaml" "${BASELINE_DIR}/train_config_resolved.yaml"
+cp "${LATEST_RUN}/train.log" "${BASELINE_DIR}/train.log"
+cp "${LATEST_RUN}/metrics.csv" "${BASELINE_DIR}/metrics.csv"
+cp "${LATEST_RUN}/metrics_per_epoch.json" "${BASELINE_DIR}/metrics_per_epoch.json"
+cp "${BEST_CHECKPOINT}" "${BASELINE_DIR}/best.pt"
+
+if [[ -d "${LATEST_RUN}/vis" ]]; then
+  cp -R "${LATEST_RUN}/vis" "${BASELINE_DIR}/vis"
+fi
+
+if [[ -f "${ROOT_DIR}/outputs/metrics_3d.json" ]]; then
+  cp "${ROOT_DIR}/outputs/metrics_3d.json" "${BASELINE_DIR}/metrics_3d.json"
+fi
+
+git -C "${ROOT_DIR}" rev-parse --short HEAD > "${BASELINE_DIR}/git_commit.txt"
+{
+  "${PYTHON_BIN}" --version 2>&1
+  "${PYTHON_BIN}" - <<'PY'
+import importlib
+for pkg in ("torch", "monai"):
+    try:
+        mod = importlib.import_module(pkg)
+        print(f"{pkg}=={getattr(mod, '__version__', 'unknown')}")
+    except Exception:
+        print(f"{pkg} not installed")
+PY
+} > "${BASELINE_DIR}/env.txt"
+
+nvidia-smi -L > "${BASELINE_DIR}/gpu.txt"
+
+SUMMARY_JSON="${ROOT_DIR}/outputs/metrics_3d.json"
+if [[ -f "${SUMMARY_JSON}" ]]; then
+  python - <<PY
+import json
+from pathlib import Path
+path = Path("${SUMMARY_JSON}")
+data = json.loads(path.read_text())
+val = data.get("val", {})
+print("Baseline summary:")
+print(f"  best checkpoint: ${BEST_CHECKPOINT}")
+print(f"  val dice_tumor: {val.get('dice_tumor')}")
+print(f"  val foreground_dice: {val.get('foreground_mean_dice')}")
+PY
+fi
+
+echo "Baseline artifacts copied to ${BASELINE_DIR}"
+
+--- scripts/summarize_run.py ---
+import argparse
+import csv
+import json
+import re
+from pathlib import Path
+from typing import Any, Dict, List
+
+import yaml
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Summarize a 3D run into baseline metrics artifacts")
+    parser.add_argument("--run-dir", required=True, help="Path to outputs/runs/<run_id>")
+    parser.add_argument(
+        "--output-json",
+        default="outputs/baseline_metrics.json",
+        help="Output JSON path",
+    )
+    return parser.parse_args()
+
+
+def _load_yaml(path: Path) -> Dict[str, Any]:
+    with path.open("r", encoding="utf-8") as f:
+        return yaml.safe_load(f)
+
+
+def _load_metrics_json(path: Path) -> List[Dict[str, Any]]:
+    if not path.exists():
+        return []
+    with path.open("r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def _load_metrics_csv(path: Path) -> List[Dict[str, Any]]:
+    if not path.exists():
+        return []
+    with path.open("r", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        return list(reader)
+
+
+def _best_epoch_from_history(history: List[Dict[str, Any]]) -> Dict[str, Any]:
+    if not history:
+        return {}
+    best = None
+    for row in history:
+        try:
+            score = float(row.get("val_foreground_dice", 0.0))
+            loss = float(row.get("val_loss", 1e9))
+        except (TypeError, ValueError):
+            continue
+        if best is None:
+            best = row
+            continue
+        best_score = float(best.get("val_foreground_dice", 0.0))
+        best_loss = float(best.get("val_loss", 1e9))
+        if score > best_score or (abs(score - best_score) < 1e-8 and loss < best_loss):
+            best = row
+    return best or {}
+
+
+def _extract_sanity_tp_fp_fn(train_log: Path) -> Dict[str, Any]:
+    if not train_log.exists():
+        return {}
+    pattern = re.compile(r"tp=(\d+) fp=(\d+) fn=(\d+)")
+    last = None
+    with train_log.open("r", encoding="utf-8") as f:
+        for line in f:
+            match = pattern.search(line)
+            if match:
+                last = match
+    if not last:
+        return {}
+    return {
+        "tp": int(last.group(1)),
+        "fp": int(last.group(2)),
+        "fn": int(last.group(3)),
+    }
+
+
+def main():
+    args = parse_args()
+    run_dir = Path(args.run_dir).expanduser().resolve()
+    if not run_dir.exists():
+        raise FileNotFoundError(f"Run directory not found: {run_dir}")
+
+    cfg_path = run_dir / "train_config_resolved.yaml"
+    if not cfg_path.exists():
+        raise FileNotFoundError(f"Missing train_config_resolved.yaml in {run_dir}")
+    cfg = _load_yaml(cfg_path)
+
+    metrics_json = _load_metrics_json(run_dir / "metrics_per_epoch.json")
+    metrics_csv = _load_metrics_csv(run_dir / "metrics.csv")
+
+    if not metrics_csv and metrics_json:
+        csv_path = run_dir / "metrics.csv"
+        with csv_path.open("w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow(
+                [
+                    "epoch",
+                    "train_loss",
+                    "val_loss",
+                    "val_mean_dice",
+                    "val_foreground_dice",
+                    "val_dice_background",
+                    "val_dice_tumor",
+                    "lr",
+                ]
+            )
+            for row in metrics_json:
+                writer.writerow(
+                    [
+                        row.get("epoch"),
+                        row.get("train_loss"),
+                        row.get("val_loss"),
+                        row.get("val_mean_dice"),
+                        row.get("val_foreground_dice"),
+                        row.get("val_dice_background"),
+                        row.get("val_dice_tumor"),
+                        row.get("lr"),
+                    ]
+                )
+        metrics_csv = _load_metrics_csv(csv_path)
+
+    best_row = _best_epoch_from_history(metrics_json or metrics_csv)
+    best_epoch = int(best_row.get("epoch", 0)) if best_row else 0
+
+    dice_per_class = best_row.get("val_dice_per_class") if best_row else None
+    if isinstance(dice_per_class, list):
+        dice_per_class = [float(x) for x in dice_per_class]
+
+    train_log = run_dir / "train.log"
+    sanity = _extract_sanity_tp_fp_fn(train_log)
+
+    data_cfg = cfg.get("data", {})
+    training_cfg = cfg.get("training", {})
+
+    summary = {
+        "dataset_format": "msd_task01",
+        "label_mode": data_cfg.get("label_mode", "unknown"),
+        "roi_size": data_cfg.get("roi_size"),
+        "epochs": training_cfg.get("max_epochs"),
+        "best_epoch": best_epoch,
+        "dice_per_class": dice_per_class,
+        "dice_background": float(best_row.get("val_dice_background", 0.0)) if best_row else 0.0,
+        "dice_tumor": float(best_row.get("val_dice_tumor", 0.0)) if best_row else 0.0,
+        "foreground_dice": float(best_row.get("val_foreground_dice", 0.0)) if best_row else 0.0,
+        "ignore_empty_foreground": training_cfg.get("ignore_empty_foreground", True),
+        "prediction_threshold": training_cfg.get("prediction_threshold", 0.5),
+    }
+    if sanity:
+        summary["sanity_tp_fp_fn"] = sanity
+
+    output_path = Path(args.output_json).expanduser().resolve()
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with output_path.open("w", encoding="utf-8") as f:
+        json.dump(summary, f, indent=2)
+
+    outputs_dir = output_path.parent
+    metrics_csv_out = outputs_dir / "metrics.csv"
+    if not metrics_csv_out.exists() and metrics_csv:
+        with metrics_csv_out.open("w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=metrics_csv[0].keys())
+            writer.writeheader()
+            writer.writerows(metrics_csv)
+
+    print(f"Wrote {output_path}")
 
 
 if __name__ == "__main__":
@@ -1576,6 +2194,7 @@ class MSDTask01Dataset3D(torch.utils.data.Dataset):
         mode: str = "train",
         seed: int = 42,
         max_pos_attempts: int = 10,
+        min_pos_voxel_frac: float = 0.0,
     ):
         self.cases = list(cases)
         self.roi_size = tuple(roi_size) if roi_size is not None else None
@@ -1586,6 +2205,7 @@ class MSDTask01Dataset3D(torch.utils.data.Dataset):
         self.mode = mode
         self.rng = np.random.default_rng(seed)
         self.max_pos_attempts = max_pos_attempts
+        self.min_pos_voxel_frac = min_pos_voxel_frac
 
     def __len__(self):
         return len(self.cases)
@@ -1598,6 +2218,13 @@ class MSDTask01Dataset3D(torch.utils.data.Dataset):
         image = _to_channel_first(image)
         image = normalize_modalities(image, self.percentiles)
         label = label.astype(np.int64)
+        if label.ndim != 3:
+            raise ValueError(f"Expected 3D label volume, got shape {label.shape}")
+        label = np.transpose(label, (2, 0, 1))
+        if label.shape != image.shape[1:]:
+            raise ValueError(
+                f"Label shape {label.shape} does not match image spatial shape {image.shape[1:]}"
+            )
 
         if self.label_mode == "binary":
             label = (label > 0).astype(np.int64)
@@ -1614,6 +2241,10 @@ class MSDTask01Dataset3D(torch.utils.data.Dataset):
                     center = sample_center(label, self.roi_size, 1.0, self.rng)
                     label_patch = crop_or_pad(label, center, self.roi_size)
                     if np.any(label_patch > 0):
+                        if self.min_pos_voxel_frac > 0:
+                            frac = float(np.mean(label_patch > 0))
+                            if frac < self.min_pos_voxel_frac:
+                                continue
                         break
             image = np.stack([crop_or_pad(ch, center, self.roi_size) for ch in image], axis=0)
             label = crop_or_pad(label, center, self.roi_size)
@@ -2163,9 +2794,11 @@ def evaluate_split(
     overlap: float,
     sw_batch_size: int,
     num_classes: int,
+    is_binary: bool,
     logger: logging.Logger,
     split_name: str,
     ignore_empty_foreground: bool,
+    prediction_threshold: float,
     log_interval: int = 1,
 ) -> Tuple[List[float], float, int]:
     model.eval()
@@ -2181,10 +2814,17 @@ def evaluate_split(
             logits = sliding_window_inference(
                 image, roi_size=roi_size, sw_batch_size=sw_batch_size, predictor=model, overlap=overlap
             )
-            pred_labels = torch.argmax(logits, dim=1, keepdim=True)
-            pred = torch.nn.functional.one_hot(
-                pred_labels.squeeze(1), num_classes=num_classes
-            ).permute(0, 4, 1, 2, 3).float()
+            if is_binary:
+                logit_tumor = logits[:, 1:2] if logits.shape[1] >= 2 else logits
+                probs = torch.sigmoid(logit_tumor)
+                pred = (probs > prediction_threshold).float()
+                if pred.shape[1] == 1 and num_classes == 2:
+                    pred = torch.cat([1.0 - pred, pred], dim=1)
+            else:
+                pred_labels = torch.argmax(logits, dim=1, keepdim=True)
+                pred = torch.nn.functional.one_hot(
+                    pred_labels.squeeze(1), num_classes=num_classes
+                ).permute(0, 4, 1, 2, 3).float()
             dice = _compute_dice(pred, label, include_background=True)
             dice_scores.append(dice.cpu().numpy())
             batch_sum, batch_count = _accumulate_dice(dice, label, num_classes, ignore_empty_foreground)
@@ -2261,9 +2901,14 @@ def main():
     logger.info("Using device: %s", device)
     logger.info("ROI size: %s | overlap: %s | sw_batch_size: %s", roi_size, overlap, sw_batch_size)
     logger.info("Val volumes: %s | Test volumes: %s", len(val_dataset), len(test_dataset))
-    logger.info("ignore_empty_foreground: %s | pred_rule: argmax over softmax logits", ignore_empty_foreground)
-
     ignore_empty_foreground = inference_cfg.get("ignore_empty_foreground", True)
+    is_binary = data_cfg["label_mode"] == "binary"
+    prediction_threshold = cfg.get("training", {}).get("prediction_threshold", 0.5)
+    logger.info(
+        "ignore_empty_foreground: %s | pred_rule: %s",
+        ignore_empty_foreground,
+        f"sigmoid>{prediction_threshold}" if is_binary else "argmax over softmax logits",
+    )
     val_dice, val_foreground, val_count = evaluate_split(
         model,
         val_dataset,
@@ -2272,9 +2917,11 @@ def main():
         overlap,
         sw_batch_size,
         num_classes,
+        is_binary,
         logger,
         "val",
         ignore_empty_foreground,
+        prediction_threshold,
     )
     test_dice, test_foreground, test_count = evaluate_split(
         model,
@@ -2284,9 +2931,11 @@ def main():
         overlap,
         sw_batch_size,
         num_classes,
+        is_binary,
         logger,
         "test",
         ignore_empty_foreground,
+        prediction_threshold,
     )
 
     class_names = data_cfg.get("class_names", [f"class_{i}" for i in range(num_classes)])
@@ -2318,7 +2967,7 @@ def main():
             "sw_batch_size": sw_batch_size,
             "include_background": True,
             "ignore_empty_foreground": bool(ignore_empty_foreground),
-            "pred_rule": "argmax over softmax logits",
+            "pred_rule": f"sigmoid>{prediction_threshold}" if is_binary else "argmax over softmax logits",
         },
     }
 
@@ -2587,6 +3236,8 @@ import json
 import random
 import logging
 import os
+import subprocess
+import sys
 import time
 from datetime import datetime
 from pathlib import Path
@@ -2595,7 +3246,7 @@ from typing import Dict, List, Tuple
 import numpy as np
 import torch
 import yaml
-from monai.losses import DiceCELoss
+from monai.losses import DiceCELoss, DiceLoss
 from monai.networks.nets import UNet
 from PIL import Image
 from torch.utils.tensorboard import SummaryWriter
@@ -2695,6 +3346,7 @@ def build_dataloaders(cfg: Dict) -> Tuple[torch.utils.data.DataLoader, torch.uti
         mode="train",
         seed=data_cfg.get("seed", 42),
         max_pos_attempts=data_cfg.get("max_pos_attempts", 10),
+        min_pos_voxel_frac=data_cfg.get("min_pos_voxel_frac", 0.0),
     )
     val_dataset = MSDTask01Dataset3D(
         splits["val"],
@@ -2764,21 +3416,39 @@ def compute_dice(pred: torch.Tensor, target: torch.Tensor, include_background: b
     return dice
 
 
-def _validate_labels(labels: torch.Tensor, num_classes: int) -> None:
+def _validate_labels(labels: torch.Tensor, num_classes: int, is_binary: bool) -> None:
     if labels.ndim != 5:
         raise ValueError(f"Expected labels shape (B,C,D,H,W), got {tuple(labels.shape)}")
-    if labels.shape[1] != num_classes:
+    if is_binary:
+        if labels.shape[1] not in (1, 2):
+            raise ValueError(
+                f"Binary labels must have C=1 or C=2, got C={labels.shape[1]}"
+            )
+    elif labels.shape[1] != num_classes:
         raise ValueError(
             f"Label channel mismatch: expected C={num_classes}, got C={labels.shape[1]}"
         )
     if labels.min().item() < -1e-3 or labels.max().item() > 1 + 1e-3:
         raise ValueError("Labels must be in [0,1] for one-hot encoding")
-    channel_sum = labels.sum(dim=1)
-    if not torch.allclose(channel_sum, torch.ones_like(channel_sum), atol=1e-3):
-        raise ValueError("Labels must be one-hot encoded (sum across channels = 1).")
+    if not is_binary or labels.shape[1] == 2:
+        channel_sum = labels.sum(dim=1)
+        if not torch.allclose(channel_sum, torch.ones_like(channel_sum), atol=1e-3):
+            raise ValueError("Labels must be one-hot encoded (sum across channels = 1).")
 
 
-def _pred_to_onehot(logits: torch.Tensor, num_classes: int) -> torch.Tensor:
+def _pred_to_onehot(
+    logits: torch.Tensor,
+    num_classes: int,
+    is_binary: bool,
+    threshold: float = 0.5,
+) -> torch.Tensor:
+    if is_binary:
+        logit_tumor = logits[:, 1:2] if logits.shape[1] >= 2 else logits
+        probs = torch.sigmoid(logit_tumor)
+        pred = (probs > threshold).float()
+        if pred.shape[1] == 1 and num_classes == 2:
+            pred = torch.cat([1.0 - pred, pred], dim=1)
+        return pred
     pred_labels = torch.argmax(logits, dim=1, keepdim=True)
     return torch.nn.functional.one_hot(
         pred_labels.squeeze(1), num_classes=num_classes
@@ -2908,6 +3578,21 @@ def main():
     run_dir.mkdir(parents=True, exist_ok=True)
     logger = setup_logging(run_dir / "train.log")
 
+    (run_dir / "git_commit.txt").write_text(
+        subprocess.getoutput("git rev-parse --short HEAD").strip() or "unknown",
+        encoding="utf-8",
+    )
+    env_lines = [sys.version.split()[0]]
+    for pkg in ("torch", "monai"):
+        try:
+            mod = __import__(pkg)
+            env_lines.append(f"{pkg}=={getattr(mod, '__version__', 'unknown')}")
+        except Exception:
+            env_lines.append(f"{pkg} not installed")
+    (run_dir / "env.txt").write_text("\n".join(env_lines) + "\n", encoding="utf-8")
+    gpu_info = subprocess.getoutput("nvidia-smi -L") if torch.cuda.is_available() else "cpu"
+    (run_dir / "gpu.txt").write_text(gpu_info + "\n", encoding="utf-8")
+
     with (run_dir / "train_config_resolved.yaml").open("w", encoding="utf-8") as f:
         yaml.safe_dump(cfg, f, sort_keys=False)
 
@@ -2921,11 +3606,31 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = build_model(cfg, num_classes).to(device)
 
-    loss_fn = DiceCELoss(
-        to_onehot_y=False,
-        softmax=True,
-        include_background=True,
-    )
+    is_binary = data_cfg["label_mode"] == "binary"
+    if is_binary:
+        pos_weight_value = float(cfg["training"].get("pos_weight", 5.0))
+        pos_weight = torch.tensor([pos_weight_value], device=device)
+        bce_loss = torch.nn.BCEWithLogitsLoss(pos_weight=pos_weight)
+        dice_loss = DiceLoss(sigmoid=True, include_background=False)
+
+        def loss_fn(logits: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
+            if labels.shape[1] == 2:
+                target = labels[:, 1:2]
+            elif labels.shape[1] == 1:
+                target = labels
+            else:
+                raise ValueError(
+                    f"Expected binary labels with C=1 or C=2, got shape {tuple(labels.shape)}"
+                )
+            logit_tumor = logits[:, 1:2] if logits.shape[1] >= 2 else logits
+            return dice_loss(logit_tumor, target) + bce_loss(logit_tumor, target)
+
+    else:
+        loss_fn = DiceCELoss(
+            to_onehot_y=False,
+            softmax=True,
+            include_background=False,
+        )
     optimizer = torch.optim.Adam(model.parameters(), lr=cfg["training"]["learning_rate"])
     scaler = torch.amp.GradScaler("cuda", enabled=torch.cuda.is_available())
 
@@ -2944,11 +3649,20 @@ def main():
         cfg["training"].get("limit_train_batches"),
         cfg["training"].get("limit_val_batches"),
     )
-    logger.info("ignore_empty_foreground: %s | pred_rule: argmax over softmax logits", ignore_empty_foreground)
+    logger.info(
+        "ignore_empty_foreground: %s | pred_rule: %s",
+        ignore_empty_foreground,
+        f"sigmoid>{cfg['training'].get('prediction_threshold', 0.5)}" if is_binary else "argmax over softmax logits",
+    )
     if torch.cuda.is_available():
         logger.info("GPU name: %s", torch.cuda.get_device_name(0))
         logger.info("CUDA capability: %s", torch.cuda.get_device_capability(0))
     logger.info("AMP enabled: %s", torch.cuda.is_available())
+    logger.info("prediction_threshold: %s", cfg["training"].get("prediction_threshold", 0.5))
+    logger.info(
+        "pred_rule: %s",
+        f"sigmoid>{cfg['training'].get('prediction_threshold', 0.5)}" if is_binary else "argmax over softmax logits",
+    )
     if "OMP_NUM_THREADS" not in os.environ or "MKL_NUM_THREADS" not in os.environ:
         logger.warning(
             "For best throughput set: OMP_NUM_THREADS=1 and MKL_NUM_THREADS=1"
@@ -2988,6 +3702,7 @@ def main():
             step_window = 0
             pos_batches = 0
             total_batches = 0
+            pos_tumor_fracs: List[float] = []
             logged_device = False
             for batch_idx, (images, labels) in enumerate(train_loader):
                 if cfg["training"].get("limit_train_batches") and batch_idx >= cfg["training"]["limit_train_batches"]:
@@ -2998,7 +3713,7 @@ def main():
                 if not logged_device:
                     logger.info("Model device: %s | Batch device: %s", next(model.parameters()).device, images.device)
                     logged_device = True
-                _validate_labels(labels, num_classes)
+                _validate_labels(labels, num_classes, is_binary)
                 optimizer.zero_grad(set_to_none=True)
                 with torch.autocast(device_type=device.type, enabled=torch.cuda.is_available()):
                     logits = model(images)
@@ -3009,9 +3724,10 @@ def main():
                 train_loss += loss.item()
                 batch_count += 1
                 total_batches += 1
-                preds = _pred_to_onehot(logits, num_classes)
+                preds = _pred_to_onehot(logits, num_classes, is_binary, cfg["training"].get("prediction_threshold", 0.5))
                 if _foreground_mask(labels).any():
                     pos_batches += 1
+                    pos_tumor_fracs.append(_foreground_mask(labels).float().mean().item())
                 step_time += time.perf_counter() - start
                 step_window += 1
                 if global_step < log_sanity_steps or batch_idx == 0:
@@ -3033,6 +3749,10 @@ def main():
             observed_pos_ratio = pos_batches / max(1, total_batches)
             logger.info("Observed train pos_ratio (patches w/ tumor): %.3f", observed_pos_ratio)
             tb_writer.add_scalar("data/pos_ratio", observed_pos_ratio, epoch + 1)
+            if pos_tumor_fracs:
+                median_pos_frac = float(np.median(pos_tumor_fracs))
+                logger.info("Median tumor_voxel_frac (pos patches): %.6f", median_pos_frac)
+                tb_writer.add_scalar("data/median_tumor_frac_pos", median_pos_frac, epoch + 1)
 
             model.eval()
             dice_scores: List[float] = []
@@ -3048,11 +3768,11 @@ def main():
                         break
                     images = images.to(device)
                     labels = labels.to(device)
-                    _validate_labels(labels, num_classes)
+                    _validate_labels(labels, num_classes, is_binary)
                     logits = model(images)
                     val_loss += loss_fn(logits, labels).item()
                     val_batches += 1
-                    preds = _pred_to_onehot(logits, num_classes)
+                    preds = _pred_to_onehot(logits, num_classes, is_binary, cfg["training"].get("prediction_threshold", 0.5))
                     if debug_shapes and val_idx == 0:
                         logger.info(
                             "val shapes | images=%s labels=%s logits=%s preds=%s",
