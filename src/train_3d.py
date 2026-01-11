@@ -209,7 +209,8 @@ def _pred_to_onehot(
     threshold: float = 0.5,
 ) -> torch.Tensor:
     if is_binary:
-        probs = torch.sigmoid(logits)
+        logit_tumor = logits[:, 1:2] if logits.shape[1] >= 2 else logits
+        probs = torch.sigmoid(logit_tumor)
         pred = (probs > threshold).float()
         if pred.shape[1] == 1 and num_classes == 2:
             pred = torch.cat([1.0 - pred, pred], dim=1)
@@ -372,7 +373,8 @@ def main():
                 raise ValueError(
                     f"Expected binary labels with C=1 or C=2, got shape {tuple(labels.shape)}"
                 )
-            return dice_loss(logits, target) + bce_loss(logits, target)
+            logit_tumor = logits[:, 1:2] if logits.shape[1] >= 2 else logits
+            return dice_loss(logit_tumor, target) + bce_loss(logit_tumor, target)
 
     else:
         loss_fn = DiceCELoss(
@@ -398,7 +400,11 @@ def main():
         cfg["training"].get("limit_train_batches"),
         cfg["training"].get("limit_val_batches"),
     )
-    logger.info("ignore_empty_foreground: %s | pred_rule: argmax over softmax logits", ignore_empty_foreground)
+    logger.info(
+        "ignore_empty_foreground: %s | pred_rule: %s",
+        ignore_empty_foreground,
+        f"sigmoid>{cfg['training'].get('prediction_threshold', 0.5)}" if is_binary else "argmax over softmax logits",
+    )
     if torch.cuda.is_available():
         logger.info("GPU name: %s", torch.cuda.get_device_name(0))
         logger.info("CUDA capability: %s", torch.cuda.get_device_capability(0))

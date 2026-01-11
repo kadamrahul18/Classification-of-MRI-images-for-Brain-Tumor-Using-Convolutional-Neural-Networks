@@ -153,7 +153,8 @@ def evaluate_split(
                 image, roi_size=roi_size, sw_batch_size=sw_batch_size, predictor=model, overlap=overlap
             )
             if is_binary:
-                probs = torch.sigmoid(logits)
+                logit_tumor = logits[:, 1:2] if logits.shape[1] >= 2 else logits
+                probs = torch.sigmoid(logit_tumor)
                 pred = (probs > prediction_threshold).float()
                 if pred.shape[1] == 1 and num_classes == 2:
                     pred = torch.cat([1.0 - pred, pred], dim=1)
