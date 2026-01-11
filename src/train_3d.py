@@ -182,18 +182,24 @@ def compute_dice(pred: torch.Tensor, target: torch.Tensor, include_background: b
     return dice
 
 
-def _validate_labels(labels: torch.Tensor, num_classes: int) -> None:
+def _validate_labels(labels: torch.Tensor, num_classes: int, is_binary: bool) -> None:
     if labels.ndim != 5:
         raise ValueError(f"Expected labels shape (B,C,D,H,W), got {tuple(labels.shape)}")
-    if labels.shape[1] != num_classes:
+    if is_binary:
+        if labels.shape[1] not in (1, 2):
+            raise ValueError(
+                f"Binary labels must have C=1 or C=2, got C={labels.shape[1]}"
+            )
+    elif labels.shape[1] != num_classes:
         raise ValueError(
             f"Label channel mismatch: expected C={num_classes}, got C={labels.shape[1]}"
         )
     if labels.min().item() < -1e-3 or labels.max().item() > 1 + 1e-3:
         raise ValueError("Labels must be in [0,1] for one-hot encoding")
-    channel_sum = labels.sum(dim=1)
-    if not torch.allclose(channel_sum, torch.ones_like(channel_sum), atol=1e-3):
-        raise ValueError("Labels must be one-hot encoded (sum across channels = 1).")
+    if not is_binary or labels.shape[1] == 2:
+        channel_sum = labels.sum(dim=1)
+        if not torch.allclose(channel_sum, torch.ones_like(channel_sum), atol=1e-3):
+            raise ValueError("Labels must be one-hot encoded (sum across channels = 1).")
 
 
 def _pred_to_onehot(
@@ -358,11 +364,14 @@ def main():
         dice_loss = DiceLoss(sigmoid=True, include_background=False)
 
         def loss_fn(logits: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
-            if labels.shape[1] != 2:
+            if labels.shape[1] == 2:
+                target = labels[:, 1:2]
+            elif labels.shape[1] == 1:
+                target = labels
+            else:
                 raise ValueError(
-                    f"Expected binary one-hot labels with C=2, got shape {tuple(labels.shape)}"
+                    f"Expected binary labels with C=1 or C=2, got shape {tuple(labels.shape)}"
                 )
-            target = labels[:, 1:2]
             return dice_loss(logits, target) + bce_loss(logits, target)
 
     else:
@@ -449,7 +458,7 @@ def main():
                 if not logged_device:
                     logger.info("Model device: %s | Batch device: %s", next(model.parameters()).device, images.device)
                     logged_device = True
-                _validate_labels(labels, num_classes)
+                _validate_labels(labels, num_classes, is_binary)
                 optimizer.zero_grad(set_to_none=True)
                 with torch.autocast(device_type=device.type, enabled=torch.cuda.is_available()):
                     logits = model(images)
@@ -504,7 +513,7 @@ def main():
                         break
                     images = images.to(device)
                     labels = labels.to(device)
-                    _validate_labels(labels, num_classes)
+                    _validate_labels(labels, num_classes, is_binary)
                     logits = model(images)
                     val_loss += loss_fn(logits, labels).item()
                     val_batches += 1
