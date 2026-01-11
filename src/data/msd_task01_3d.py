@@ -194,12 +194,11 @@ class MSDTask01Dataset3D(torch.utils.data.Dataset):
         label = label.astype(np.int64)
         if label.ndim != 3:
             raise ValueError(f"Expected 3D label volume, got shape {label.shape}")
+        label = np.transpose(label, (2, 0, 1))
         if label.shape != image.shape[1:]:
-            label = np.transpose(label, (2, 0, 1))
-            if label.shape != image.shape[1:]:
-                raise ValueError(
-                    f"Label shape {label.shape} does not match image spatial shape {image.shape[1:]}"
-                )
+            raise ValueError(
+                f"Label shape {label.shape} does not match image spatial shape {image.shape[1:]}"
+            )
 
         if self.label_mode == "binary":
             label = (label > 0).astype(np.int64)
