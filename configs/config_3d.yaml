@@ -11,7 +11,7 @@ data:
     test: null
   label_mode: binary
   class_names: [background, tumor]
-  roi_size: [96, 96, 96]
+  roi_size: [128, 128, 128]
   pos_ratio: 0.9
   max_pos_attempts: 10
   percentiles: [0.5, 99.5]
