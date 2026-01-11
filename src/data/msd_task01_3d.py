@@ -170,6 +170,7 @@ class MSDTask01Dataset3D(torch.utils.data.Dataset):
         mode: str = "train",
         seed: int = 42,
         max_pos_attempts: int = 10,
+        min_pos_voxel_frac: float = 0.0,
     ):
         self.cases = list(cases)
         self.roi_size = tuple(roi_size) if roi_size is not None else None
@@ -180,6 +181,7 @@ class MSDTask01Dataset3D(torch.utils.data.Dataset):
         self.mode = mode
         self.rng = np.random.default_rng(seed)
         self.max_pos_attempts = max_pos_attempts
+        self.min_pos_voxel_frac = min_pos_voxel_frac
 
     def __len__(self):
         return len(self.cases)
@@ -215,6 +217,10 @@ class MSDTask01Dataset3D(torch.utils.data.Dataset):
                     center = sample_center(label, self.roi_size, 1.0, self.rng)
                     label_patch = crop_or_pad(label, center, self.roi_size)
                     if np.any(label_patch > 0):
+                        if self.min_pos_voxel_frac > 0:
+                            frac = float(np.mean(label_patch > 0))
+                            if frac < self.min_pos_voxel_frac:
+                                continue
                         break
             image = np.stack([crop_or_pad(ch, center, self.roi_size) for ch in image], axis=0)
             label = crop_or_pad(label, center, self.roi_size)

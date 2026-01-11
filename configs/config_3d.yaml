@@ -14,6 +14,7 @@ data:
   roi_size: [128, 128, 128]
   pos_ratio: 0.9
   max_pos_attempts: 10
+  min_pos_voxel_frac: 0.01
   percentiles: [0.5, 99.5]
 
 model:

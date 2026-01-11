@@ -112,6 +112,7 @@ def build_dataloaders(cfg: Dict) -> Tuple[torch.utils.data.DataLoader, torch.uti
         mode="train",
         seed=data_cfg.get("seed", 42),
         max_pos_attempts=data_cfg.get("max_pos_attempts", 10),
+        min_pos_voxel_frac=data_cfg.get("min_pos_voxel_frac", 0.0),
     )
     val_dataset = MSDTask01Dataset3D(
         splits["val"],
