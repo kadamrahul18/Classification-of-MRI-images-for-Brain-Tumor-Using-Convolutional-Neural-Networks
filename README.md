@@ -2,6 +2,8 @@
 
 An end-to-end medical imaging pipeline for 3D brain tumor segmentation with strong correctness checks, reproducible configs, and GPU-ready training/evaluation.
 
+Originally created in 2021; refactored + rebuilt into a reproducible 3D baseline in Nov 2025–Jan 2026.
+
 ## What This Repo Demonstrates
 - **Data pipeline rigor**: NIfTI loading, modality normalization, ROI sampling safeguards, and label alignment checks.
 - **Training correctness**: per-class Dice, foreground Dice (ignoring empty tumor), tumor-based checkpointing.

@@ -60,6 +60,75 @@ File structure:
 - configs/config_3d_baseline.yaml
 - docs/assets/baseline_curves.png
 - docs/assets/baseline_examples.png
+- outputs/.DS_Store
+- outputs/baseline_metrics.json
+- outputs/baseline_v1/20260111_154537/best.pt
+- outputs/baseline_v1/20260111_154537/config_3d_baseline.yaml
+- outputs/baseline_v1/20260111_154537/env.txt
+- outputs/baseline_v1/20260111_154537/git_commit.txt
+- outputs/baseline_v1/20260111_154537/gpu.txt
+- outputs/baseline_v1/20260111_154537/metrics.csv
+- outputs/baseline_v1/20260111_154537/metrics_3d.json
+- outputs/baseline_v1/20260111_154537/metrics_per_epoch.json
+- outputs/baseline_v1/20260111_154537/train_config_resolved.yaml
+- outputs/baseline_v1/20260111_154537/vis/epoch_10/case_0_gt.png
+- outputs/baseline_v1/20260111_154537/vis/epoch_10/case_0_input.png
+- outputs/baseline_v1/20260111_154537/vis/epoch_10/case_0_overlay.png
+- outputs/baseline_v1/20260111_154537/vis/epoch_10/case_0_pred.png
+- outputs/baseline_v1/20260111_154537/vis/epoch_10/case_1_gt.png
+- outputs/baseline_v1/20260111_154537/vis/epoch_10/case_1_input.png
+- outputs/baseline_v1/20260111_154537/vis/epoch_10/case_1_overlay.png
+- outputs/baseline_v1/20260111_154537/vis/epoch_10/case_1_pred.png
+- outputs/baseline_v1/20260111_154537/vis/epoch_10/case_2_gt.png
+- outputs/baseline_v1/20260111_154537/vis/epoch_10/case_2_input.png
+- outputs/baseline_v1/20260111_154537/vis/epoch_10/case_2_overlay.png
+- outputs/baseline_v1/20260111_154537/vis/epoch_10/case_2_pred.png
+- outputs/baseline_v1/20260111_154537/vis/epoch_20/case_0_gt.png
+- outputs/baseline_v1/20260111_154537/vis/epoch_20/case_0_input.png
+- outputs/baseline_v1/20260111_154537/vis/epoch_20/case_0_overlay.png
+- outputs/baseline_v1/20260111_154537/vis/epoch_20/case_0_pred.png
+- outputs/baseline_v1/20260111_154537/vis/epoch_20/case_1_gt.png
+- outputs/baseline_v1/20260111_154537/vis/epoch_20/case_1_input.png
+- outputs/baseline_v1/20260111_154537/vis/epoch_20/case_1_overlay.png
+- outputs/baseline_v1/20260111_154537/vis/epoch_20/case_1_pred.png
+- outputs/baseline_v1/20260111_154537/vis/epoch_20/case_2_gt.png
+- outputs/baseline_v1/20260111_154537/vis/epoch_20/case_2_input.png
+- outputs/baseline_v1/20260111_154537/vis/epoch_20/case_2_overlay.png
+- outputs/baseline_v1/20260111_154537/vis/epoch_20/case_2_pred.png
+- outputs/metrics.csv
+- outputs/metrics_3d.json
+- outputs/runs/.DS_Store
+- outputs/runs/20260111_145626/env.txt
+- outputs/runs/20260111_145626/events.out.tfevents.1768161388.gn-0007.542966.0
+- outputs/runs/20260111_145626/git_commit.txt
+- outputs/runs/20260111_145626/gpu.txt
+- outputs/runs/20260111_145626/metrics.csv
+- outputs/runs/20260111_145626/metrics_per_epoch.json
+- outputs/runs/20260111_145626/train_config_resolved.yaml
+- outputs/runs/20260111_145626/vis/epoch_10/case_0_gt.png
+- outputs/runs/20260111_145626/vis/epoch_10/case_0_input.png
+- outputs/runs/20260111_145626/vis/epoch_10/case_0_overlay.png
+- outputs/runs/20260111_145626/vis/epoch_10/case_0_pred.png
+- outputs/runs/20260111_145626/vis/epoch_10/case_1_gt.png
+- outputs/runs/20260111_145626/vis/epoch_10/case_1_input.png
+- outputs/runs/20260111_145626/vis/epoch_10/case_1_overlay.png
+- outputs/runs/20260111_145626/vis/epoch_10/case_1_pred.png
+- outputs/runs/20260111_145626/vis/epoch_10/case_2_gt.png
+- outputs/runs/20260111_145626/vis/epoch_10/case_2_input.png
+- outputs/runs/20260111_145626/vis/epoch_10/case_2_overlay.png
+- outputs/runs/20260111_145626/vis/epoch_10/case_2_pred.png
+- outputs/runs/20260111_145626/vis/epoch_20/case_0_gt.png
+- outputs/runs/20260111_145626/vis/epoch_20/case_0_input.png
+- outputs/runs/20260111_145626/vis/epoch_20/case_0_overlay.png
+- outputs/runs/20260111_145626/vis/epoch_20/case_0_pred.png
+- outputs/runs/20260111_145626/vis/epoch_20/case_1_gt.png
+- outputs/runs/20260111_145626/vis/epoch_20/case_1_input.png
+- outputs/runs/20260111_145626/vis/epoch_20/case_1_overlay.png
+- outputs/runs/20260111_145626/vis/epoch_20/case_1_pred.png
+- outputs/runs/20260111_145626/vis/epoch_20/case_2_gt.png
+- outputs/runs/20260111_145626/vis/epoch_20/case_2_input.png
+- outputs/runs/20260111_145626/vis/epoch_20/case_2_overlay.png
+- outputs/runs/20260111_145626/vis/epoch_20/case_2_pred.png
 - repository_dump.txt
 - requirements-3d.txt
 - requirements.txt
@@ -168,8 +237,7 @@ dist/
 .pytest_cache/
 
 # TensorBoard / checkpoints / outputs
-outputs/
-outputs/runs/
+outputs/runs/*/best.pt
 brain-tumor-run/
 logs/
 
@@ -319,14 +387,11 @@ python scripts/make_readme_figures.py --run-dir outputs/runs/<run_id>
 
 ## Results — Baseline v1.0.0
 
-**Note:** Fill the table after running the baseline script (it writes `outputs/baseline_metrics.json`).  
 The baseline config uses **limited epochs/batches** to keep runtime under ~2 hours on a V100.
 
-| GPU | ROI | Epochs | Best Epoch | Tumor Dice | Foreground Dice | Dataset Split |
-| --- | --- | ------ | ---------- | ---------- | ---------------- | ------------- |
-| TBD | 96³ | 20 | TBD | TBD | TBD | 70/20/10 |
-
-Figures below are placeholders until you run `scripts/make_readme_figures.py`.
+| GPU | ROI | Epochs | Best Epoch | Tumor Dice | Foreground Dice | Mean Dice | Background Dice | Dataset Split |
+| --- | --- | ------ | ---------- | ---------- | ---------------- | --------- | --------------- | ------------- |
+| Tesla V100-SXM2-16GB | 96³ | 20 | 19 | 0.2816 | 0.2816 | 0.5511 | 0.9445 | 70/20/10 |
 
 ![Baseline Examples](docs/assets/baseline_examples.png)
 ![Baseline Curves](docs/assets/baseline_curves.png)
@@ -1122,6 +1187,1392 @@ inference:
 (binary file, contents omitted)
 
 --- docs/assets/baseline_examples.png ---
+(binary file, contents omitted)
+
+--- outputs/.DS_Store ---
+(binary file, contents omitted)
+
+--- outputs/baseline_metrics.json ---
+{
+  "dataset_format": "msd_task01",
+  "label_mode": "binary",
+  "roi_size": [
+    96,
+    96,
+    96
+  ],
+  "epochs": 20,
+  "best_epoch": 19,
+  "dice_per_class": [
+    0.944538414478302,
+    0.2815742690649391
+  ],
+  "dice_background": 0.944538414478302,
+  "dice_tumor": 0.2815742690649391,
+  "foreground_dice": 0.2815742690649391,
+  "ignore_empty_foreground": true,
+  "prediction_threshold": 0.5,
+  "sanity_tp_fp_fn": {
+    "tp": 64886,
+    "fp": 71118,
+    "fn": 5895
+  }
+}
+
+--- outputs/baseline_v1/20260111_154537/best.pt ---
+(binary file, contents omitted)
+
+--- outputs/baseline_v1/20260111_154537/config_3d_baseline.yaml ---
+# 3D baseline configuration for MSD Task01_BrainTumour (v1.0.0)
+
+data:
+  root: ./data/raw/msd_task01/Task01_BrainTumour
+  train_ratio: 0.7
+  val_ratio: 0.2
+  seed: 42
+  list_files:
+    train: null
+    val: null
+    test: null
+  label_mode: binary
+  class_names: [background, tumor]
+  roi_size: [96, 96, 96]
+  pos_ratio: 0.9
+  max_pos_attempts: 10
+  min_pos_voxel_frac: 0.01
+  percentiles: [0.5, 99.5]
+
+model:
+  in_channels: 4
+  channels: [16, 32, 64, 128, 128]
+  strides: [2, 2, 2, 2]
+  num_res_units: 1
+  norm: instance
+
+training:
+  batch_size: 1
+  learning_rate: 0.0001
+  max_epochs: 20
+  num_workers: 8
+  seed: 42
+  deterministic: false
+  output_dir: ./outputs/runs
+  limit_train_batches: 250
+  limit_val_batches: 50
+  log_interval: 20
+  vis_interval: 10
+  max_vis_cases: 3
+  debug_shapes: false
+  ignore_empty_foreground: true
+  log_sanity_steps: 50
+  prediction_threshold: 0.5
+  pos_weight: 5.0
+
+inference:
+  roi_size: [96, 96, 96]
+  overlap: 0.5
+  sw_batch_size: 2
+  ignore_empty_foreground: true
+
+--- outputs/baseline_v1/20260111_154537/env.txt ---
+Python 3.12.12
+
+--- outputs/baseline_v1/20260111_154537/git_commit.txt ---
+901211b
+
+--- outputs/baseline_v1/20260111_154537/gpu.txt ---
+GPU 0: Tesla V100-SXM2-16GB (UUID: GPU-2bf47ea5-f6c0-205c-03c6-eff3d127cbf0)
+
+--- outputs/baseline_v1/20260111_154537/metrics.csv ---
+epoch,train_loss,val_loss,val_mean_dice,val_foreground_dice,val_dice_background,val_dice_tumor,lr
+1,1.804618,1.809580,0.337177,0.069214,0.635595,0.069214,0.00010000
+2,1.647916,1.748115,0.419185,0.099598,0.794547,0.099598,0.00010000
+3,1.533839,1.691924,0.441040,0.094757,0.823331,0.094757,0.00010000
+4,1.439287,1.640130,0.447292,0.079321,0.851750,0.079321,0.00010000
+5,1.423300,1.574749,0.443360,0.087528,0.844706,0.087528,0.00010000
+6,1.352130,1.554864,0.462256,0.100227,0.870391,0.100227,0.00010000
+7,1.311753,1.505091,0.460095,0.132966,0.872322,0.132966,0.00010000
+8,1.285457,1.499902,0.480972,0.128612,0.879632,0.128612,0.00010000
+9,1.219036,1.524750,0.464430,0.096741,0.876620,0.096741,0.00010000
+10,1.177963,1.463031,0.468883,0.086387,0.891118,0.086387,0.00010000
+11,1.142838,1.361557,0.509454,0.173092,0.911592,0.173092,0.00010000
+12,1.105199,1.361706,0.506310,0.171182,0.909911,0.171182,0.00010000
+13,1.078035,1.378207,0.492081,0.149404,0.912448,0.149404,0.00010000
+14,1.043892,1.330910,0.506870,0.183269,0.925771,0.183269,0.00010000
+15,1.088492,1.258465,0.523854,0.168543,0.956696,0.168543,0.00010000
+16,1.053251,1.226082,0.534858,0.226059,0.956686,0.226059,0.00010000
+17,0.995685,1.326605,0.534173,0.199941,0.940384,0.199941,0.00010000
+18,0.986123,1.313637,0.520848,0.167267,0.931300,0.167267,0.00010000
+19,0.928755,1.223967,0.551110,0.281574,0.944538,0.281574,0.00010000
+20,0.965269,1.260744,0.525334,0.190001,0.951868,0.190001,0.00010000
+
+--- outputs/baseline_v1/20260111_154537/metrics_3d.json ---
+{
+  "dataset_format": "msd_task01",
+  "label_mode": "binary",
+  "val": {
+    "dice_per_class": {
+      "background": 0.98722887346425,
+      "tumor": 0.016988756025741694
+    },
+    "mean_dice": 0.5021088147449959,
+    "foreground_mean_dice": 0.016988756025741694,
+    "dice_background": 0.98722887346425,
+    "dice_tumor": 0.016988756025741694,
+    "number_of_volumes": 97
+  },
+  "test": {
+    "dice_per_class": {
+      "background": 0.9879584555723229,
+      "tumor": 0.023572556937305846
+    },
+    "mean_dice": 0.5057655062548143,
+    "foreground_mean_dice": 0.023572556937305846,
+    "dice_background": 0.9879584555723229,
+    "dice_tumor": 0.023572556937305846,
+    "number_of_volumes": 49
+  },
+  "inference": {
+    "roi_size": [
+      96,
+      96,
+      96
+    ],
+    "overlap": 0.5,
+    "sw_batch_size": 2,
+    "include_background": true,
+    "ignore_empty_foreground": true,
+    "pred_rule": "sigmoid>0.5"
+  },
+  "git_commit": "94bbd68"
+}
+
+--- outputs/baseline_v1/20260111_154537/metrics_per_epoch.json ---
+[
+  {
+    "epoch": 1,
+    "train_loss": 1.804617980480194,
+    "val_loss": 1.809579575061798,
+    "val_mean_dice": 0.33717746257781983,
+    "val_foreground_dice": 0.06921386545582209,
+    "val_dice_per_class": [
+      0.635595155954361,
+      0.06921386545582209
+    ],
+    "val_dice_background": 0.635595155954361,
+    "val_dice_tumor": 0.06921386545582209,
+    "lr": 0.0001,
+    "ignore_empty_foreground": true,
+    "include_background": true,
+    "pred_rule": "argmax over softmax logits",
+    "class_names": [
+      "background",
+      "tumor"
+    ]
+  },
+  {
+    "epoch": 2,
+    "train_loss": 1.6479155039787292,
+    "val_loss": 1.7481150078773497,
+    "val_mean_dice": 0.4191851818561554,
+    "val_foreground_dice": 0.09959770811044356,
+    "val_dice_per_class": [
+      0.7945473730564118,
+      0.09959770811044356
+    ],
+    "val_dice_background": 0.7945473730564118,
+    "val_dice_tumor": 0.09959770811044356,
+    "lr": 0.0001,
+    "ignore_empty_foreground": true,
+    "include_background": true,
+    "pred_rule": "argmax over softmax logits",
+    "class_names": [
+      "background",
+      "tumor"
+    ]
+  },
+  {
+    "epoch": 3,
+    "train_loss": 1.5338392219543457,
+    "val_loss": 1.691923563480377,
+    "val_mean_dice": 0.4410399258136749,
+    "val_foreground_dice": 0.09475686833919157,
+    "val_dice_per_class": [
+      0.823330591917038,
+      0.09475686833919157
+    ],
+    "val_dice_background": 0.823330591917038,
+    "val_dice_tumor": 0.09475686833919157,
+    "lr": 0.0001,
+    "ignore_empty_foreground": true,
+    "include_background": true,
+    "pred_rule": "argmax over softmax logits",
+    "class_names": [
+      "background",
+      "tumor"
+    ]
+  },
+  {
+    "epoch": 4,
+    "train_loss": 1.439286849975586,
+    "val_loss": 1.6401302647590636,
+    "val_mean_dice": 0.44729161739349366,
+    "val_foreground_dice": 0.07932097819459025,
+    "val_dice_per_class": [
+      0.8517499053478241,
+      0.07932097819459025
+    ],
+    "val_dice_background": 0.8517499053478241,
+    "val_dice_tumor": 0.07932097819459025,
+    "lr": 0.0001,
+    "ignore_empty_foreground": true,
+    "include_background": true,
+    "pred_rule": "argmax over softmax logits",
+    "class_names": [
+      "background",
+      "tumor"
+    ]
+  },
+  {
+    "epoch": 5,
+    "train_loss": 1.4233003630638124,
+    "val_loss": 1.574749126434326,
+    "val_mean_dice": 0.44335984528064726,
+    "val_foreground_dice": 0.08752848583587063,
+    "val_dice_per_class": [
+      0.8447060132026672,
+      0.08752848583587063
+    ],
+    "val_dice_background": 0.8447060132026672,
+    "val_dice_tumor": 0.08752848583587063,
+    "lr": 0.0001,
+    "ignore_empty_foreground": true,
+    "include_background": true,
+    "pred_rule": "argmax over softmax logits",
+    "class_names": [
+      "background",
+      "tumor"
+    ]
+  },
+  {
+    "epoch": 6,
+    "train_loss": 1.35212952709198,
+    "val_loss": 1.5548641729354857,
+    "val_mean_dice": 0.46225647151470184,
+    "val_foreground_dice": 0.10022668323155678,
+    "val_dice_per_class": [
+      0.8703905320167542,
+      0.10022668323155678
+    ],
+    "val_dice_background": 0.8703905320167542,
+    "val_dice_tumor": 0.10022668323155678,
+    "lr": 0.0001,
+    "ignore_empty_foreground": true,
+    "include_background": true,
+    "pred_rule": "argmax over softmax logits",
+    "class_names": [
+      "background",
+      "tumor"
+    ]
+  },
+  {
+    "epoch": 7,
+    "train_loss": 1.3117529258728027,
+    "val_loss": 1.5050909090042115,
+    "val_mean_dice": 0.46009465992450715,
+    "val_foreground_dice": 0.1329657798907849,
+    "val_dice_per_class": [
+      0.8723216390609742,
+      0.1329657798907849
+    ],
+    "val_dice_background": 0.8723216390609742,
+    "val_dice_tumor": 0.1329657798907849,
+    "lr": 0.0001,
+    "ignore_empty_foreground": true,
+    "include_background": true,
+    "pred_rule": "argmax over softmax logits",
+    "class_names": [
+      "background",
+      "tumor"
+    ]
+  },
+  {
+    "epoch": 8,
+    "train_loss": 1.2854572594165803,
+    "val_loss": 1.4999022197723388,
+    "val_mean_dice": 0.48097169160842895,
+    "val_foreground_dice": 0.12861225873894,
+    "val_dice_per_class": [
+      0.8796315395832062,
+      0.12861225873894
+    ],
+    "val_dice_background": 0.8796315395832062,
+    "val_dice_tumor": 0.12861225873894,
+    "lr": 0.0001,
+    "ignore_empty_foreground": true,
+    "include_background": true,
+    "pred_rule": "argmax over softmax logits",
+    "class_names": [
+      "background",
+      "tumor"
+    ]
+  },
+  {
+    "epoch": 9,
+    "train_loss": 1.2190356347560882,
+    "val_loss": 1.5247501564025878,
+    "val_mean_dice": 0.4644301176071167,
+    "val_foreground_dice": 0.0967411597294914,
+    "val_dice_per_class": [
+      0.8766200077533722,
+      0.0967411597294914
+    ],
+    "val_dice_background": 0.8766200077533722,
+    "val_dice_tumor": 0.0967411597294914,
+    "lr": 0.0001,
+    "ignore_empty_foreground": true,
+    "include_background": true,
+    "pred_rule": "argmax over softmax logits",
+    "class_names": [
+      "background",
+      "tumor"
+    ]
+  },
+  {
+    "epoch": 10,
+    "train_loss": 1.1779632704257965,
+    "val_loss": 1.4630306625366212,
+    "val_mean_dice": 0.46888339042663574,
+    "val_foreground_dice": 0.08638708391420853,
+    "val_dice_per_class": [
+      0.891117752790451,
+      0.08638708391420853
+    ],
+    "val_dice_background": 0.891117752790451,
+    "val_dice_tumor": 0.08638708391420853,
+    "lr": 0.0001,
+    "ignore_empty_foreground": true,
+    "include_background": true,
+    "pred_rule": "argmax over softmax logits",
+    "class_names": [
+      "background",
+      "tumor"
+    ]
+  },
+  {
+    "epoch": 11,
+    "train_loss": 1.142837985277176,
+    "val_loss": 1.3615574550628662,
+    "val_mean_dice": 0.5094544798135757,
+    "val_foreground_dice": 0.1730924388374983,
+    "val_dice_per_class": [
+      0.9115916478633881,
+      0.1730924388374983
+    ],
+    "val_dice_background": 0.9115916478633881,
+    "val_dice_tumor": 0.1730924388374983,
+    "lr": 0.0001,
+    "ignore_empty_foreground": true,
+    "include_background": true,
+    "pred_rule": "argmax over softmax logits",
+    "class_names": [
+      "background",
+      "tumor"
+    ]
+  },
+  {
+    "epoch": 12,
+    "train_loss": 1.1051985955238341,
+    "val_loss": 1.361706383228302,
+    "val_mean_dice": 0.5063101214170456,
+    "val_foreground_dice": 0.17118202200290397,
+    "val_dice_per_class": [
+      0.9099110269546509,
+      0.17118202200290397
+    ],
+    "val_dice_background": 0.9099110269546509,
+    "val_dice_tumor": 0.17118202200290397,
+    "lr": 0.0001,
+    "ignore_empty_foreground": true,
+    "include_background": true,
+    "pred_rule": "argmax over softmax logits",
+    "class_names": [
+      "background",
+      "tumor"
+    ]
+  },
+  {
+    "epoch": 13,
+    "train_loss": 1.07803541970253,
+    "val_loss": 1.3782066988945008,
+    "val_mean_dice": 0.49208119332790373,
+    "val_foreground_dice": 0.14940423866695104,
+    "val_dice_per_class": [
+      0.9124483513832092,
+      0.14940423866695104
+    ],
+    "val_dice_background": 0.9124483513832092,
+    "val_dice_tumor": 0.14940423866695104,
+    "lr": 0.0001,
+    "ignore_empty_foreground": true,
+    "include_background": true,
+    "pred_rule": "argmax over softmax logits",
+    "class_names": [
+      "background",
+      "tumor"
+    ]
+  },
+  {
+    "epoch": 14,
+    "train_loss": 1.0438917350769044,
+    "val_loss": 1.330910118818283,
+    "val_mean_dice": 0.5068700182437896,
+    "val_foreground_dice": 0.18326893295670743,
+    "val_dice_per_class": [
+      0.9257709491252899,
+      0.18326893295670743
+    ],
+    "val_dice_background": 0.9257709491252899,
+    "val_dice_tumor": 0.18326893295670743,
+    "lr": 0.0001,
+    "ignore_empty_foreground": true,
+    "include_background": true,
+    "pred_rule": "argmax over softmax logits",
+    "class_names": [
+      "background",
+      "tumor"
+    ]
+  },
+  {
+    "epoch": 15,
+    "train_loss": 1.0884918804168702,
+    "val_loss": 1.2584649181365968,
+    "val_mean_dice": 0.5238544768095017,
+    "val_foreground_dice": 0.16854306785346665,
+    "val_dice_per_class": [
+      0.956695692539215,
+      0.16854306785346665
+    ],
+    "val_dice_background": 0.956695692539215,
+    "val_dice_tumor": 0.16854306785346665,
+    "lr": 0.0001,
+    "ignore_empty_foreground": true,
+    "include_background": true,
+    "pred_rule": "argmax over softmax logits",
+    "class_names": [
+      "background",
+      "tumor"
+    ]
+  },
+  {
+    "epoch": 16,
+    "train_loss": 1.0532509520053863,
+    "val_loss": 1.2260815334320068,
+    "val_mean_dice": 0.5348580300807952,
+    "val_foreground_dice": 0.22605915148786151,
+    "val_dice_per_class": [
+      0.9566864860057831,
+      0.22605915148786151
+    ],
+    "val_dice_background": 0.9566864860057831,
+    "val_dice_tumor": 0.22605915148786151,
+    "lr": 0.0001,
+    "ignore_empty_foreground": true,
+    "include_background": true,
+    "pred_rule": "argmax over softmax logits",
+    "class_names": [
+      "background",
+      "tumor"
+    ]
+  },
+  {
+    "epoch": 17,
+    "train_loss": 0.9956852023601532,
+    "val_loss": 1.3266047322750092,
+    "val_mean_dice": 0.534173054099083,
+    "val_foreground_dice": 0.19994129647966474,
+    "val_dice_per_class": [
+      0.9403836798667907,
+      0.19994129647966474
+    ],
+    "val_dice_background": 0.9403836798667907,
+    "val_dice_tumor": 0.19994129647966474,
+    "lr": 0.0001,
+    "ignore_empty_foreground": true,
+    "include_background": true,
+    "pred_rule": "argmax over softmax logits",
+    "class_names": [
+      "background",
+      "tumor"
+    ]
+  },
+  {
+    "epoch": 18,
+    "train_loss": 0.9861232256889343,
+    "val_loss": 1.3136370587348938,
+    "val_mean_dice": 0.5208478999137879,
+    "val_foreground_dice": 0.16726681167992039,
+    "val_dice_per_class": [
+      0.9312997055053711,
+      0.16726681167992039
+    ],
+    "val_dice_background": 0.9312997055053711,
+    "val_dice_tumor": 0.16726681167992039,
+    "lr": 0.0001,
+    "ignore_empty_foreground": true,
+    "include_background": true,
+    "pred_rule": "argmax over softmax logits",
+    "class_names": [
+      "background",
+      "tumor"
+    ]
+  },
+  {
+    "epoch": 19,
+    "train_loss": 0.9287551293373107,
+    "val_loss": 1.223967468738556,
+    "val_mean_dice": 0.5511100041866303,
+    "val_foreground_dice": 0.2815742690649391,
+    "val_dice_per_class": [
+      0.944538414478302,
+      0.2815742690649391
+    ],
+    "val_dice_background": 0.944538414478302,
+    "val_dice_tumor": 0.2815742690649391,
+    "lr": 0.0001,
+    "ignore_empty_foreground": true,
+    "include_background": true,
+    "pred_rule": "argmax over softmax logits",
+    "class_names": [
+      "background",
+      "tumor"
+    ]
+  },
+  {
+    "epoch": 20,
+    "train_loss": 0.9652687962055206,
+    "val_loss": 1.2607442045211792,
+    "val_mean_dice": 0.5253342199325561,
+    "val_foreground_dice": 0.1900008580129137,
+    "val_dice_per_class": [
+      0.9518679964542389,
+      0.1900008580129137
+    ],
+    "val_dice_background": 0.9518679964542389,
+    "val_dice_tumor": 0.1900008580129137,
+    "lr": 0.0001,
+    "ignore_empty_foreground": true,
+    "include_background": true,
+    "pred_rule": "argmax over softmax logits",
+    "class_names": [
+      "background",
+      "tumor"
+    ]
+  }
+]
+
+--- outputs/baseline_v1/20260111_154537/train_config_resolved.yaml ---
+data:
+  root: ./data/raw/msd_task01/Task01_BrainTumour
+  train_ratio: 0.7
+  val_ratio: 0.2
+  seed: 42
+  list_files:
+    train: null
+    val: null
+    test: null
+  label_mode: binary
+  class_names:
+  - background
+  - tumor
+  roi_size:
+  - 96
+  - 96
+  - 96
+  pos_ratio: 0.9
+  max_pos_attempts: 10
+  min_pos_voxel_frac: 0.01
+  percentiles:
+  - 0.5
+  - 99.5
+model:
+  in_channels: 4
+  channels:
+  - 16
+  - 32
+  - 64
+  - 128
+  - 128
+  strides:
+  - 2
+  - 2
+  - 2
+  - 2
+  num_res_units: 1
+  norm: instance
+training:
+  batch_size: 1
+  learning_rate: 0.0001
+  max_epochs: 20
+  num_workers: 8
+  seed: 42
+  deterministic: false
+  output_dir: ./outputs/runs
+  limit_train_batches: 250
+  limit_val_batches: 50
+  log_interval: 20
+  vis_interval: 10
+  max_vis_cases: 3
+  debug_shapes: false
+  ignore_empty_foreground: true
+  log_sanity_steps: 50
+  prediction_threshold: 0.5
+  pos_weight: 5.0
+inference:
+  roi_size:
+  - 96
+  - 96
+  - 96
+  overlap: 0.5
+  sw_batch_size: 2
+  ignore_empty_foreground: true
+
+--- outputs/baseline_v1/20260111_154537/vis/epoch_10/case_0_gt.png ---
+(binary file, contents omitted)
+
+--- outputs/baseline_v1/20260111_154537/vis/epoch_10/case_0_input.png ---
+(binary file, contents omitted)
+
+--- outputs/baseline_v1/20260111_154537/vis/epoch_10/case_0_overlay.png ---
+(binary file, contents omitted)
+
+--- outputs/baseline_v1/20260111_154537/vis/epoch_10/case_0_pred.png ---
+(binary file, contents omitted)
+
+--- outputs/baseline_v1/20260111_154537/vis/epoch_10/case_1_gt.png ---
+(binary file, contents omitted)
+
+--- outputs/baseline_v1/20260111_154537/vis/epoch_10/case_1_input.png ---
+(binary file, contents omitted)
+
+--- outputs/baseline_v1/20260111_154537/vis/epoch_10/case_1_overlay.png ---
+(binary file, contents omitted)
+
+--- outputs/baseline_v1/20260111_154537/vis/epoch_10/case_1_pred.png ---
+(binary file, contents omitted)
+
+--- outputs/baseline_v1/20260111_154537/vis/epoch_10/case_2_gt.png ---
+(binary file, contents omitted)
+
+--- outputs/baseline_v1/20260111_154537/vis/epoch_10/case_2_input.png ---
+(binary file, contents omitted)
+
+--- outputs/baseline_v1/20260111_154537/vis/epoch_10/case_2_overlay.png ---
+(binary file, contents omitted)
+
+--- outputs/baseline_v1/20260111_154537/vis/epoch_10/case_2_pred.png ---
+(binary file, contents omitted)
+
+--- outputs/baseline_v1/20260111_154537/vis/epoch_20/case_0_gt.png ---
+(binary file, contents omitted)
+
+--- outputs/baseline_v1/20260111_154537/vis/epoch_20/case_0_input.png ---
+(binary file, contents omitted)
+
+--- outputs/baseline_v1/20260111_154537/vis/epoch_20/case_0_overlay.png ---
+(binary file, contents omitted)
+
+--- outputs/baseline_v1/20260111_154537/vis/epoch_20/case_0_pred.png ---
+(binary file, contents omitted)
+
+--- outputs/baseline_v1/20260111_154537/vis/epoch_20/case_1_gt.png ---
+(binary file, contents omitted)
+
+--- outputs/baseline_v1/20260111_154537/vis/epoch_20/case_1_input.png ---
+(binary file, contents omitted)
+
+--- outputs/baseline_v1/20260111_154537/vis/epoch_20/case_1_overlay.png ---
+(binary file, contents omitted)
+
+--- outputs/baseline_v1/20260111_154537/vis/epoch_20/case_1_pred.png ---
+(binary file, contents omitted)
+
+--- outputs/baseline_v1/20260111_154537/vis/epoch_20/case_2_gt.png ---
+(binary file, contents omitted)
+
+--- outputs/baseline_v1/20260111_154537/vis/epoch_20/case_2_input.png ---
+(binary file, contents omitted)
+
+--- outputs/baseline_v1/20260111_154537/vis/epoch_20/case_2_overlay.png ---
+(binary file, contents omitted)
+
+--- outputs/baseline_v1/20260111_154537/vis/epoch_20/case_2_pred.png ---
+(binary file, contents omitted)
+
+--- outputs/metrics.csv ---
+epoch,train_loss,val_loss,val_mean_dice,val_foreground_dice,val_dice_background,val_dice_tumor,lr
+1,1.804618,1.809580,0.337177,0.069214,0.635595,0.069214,0.00010000
+2,1.647916,1.748115,0.419185,0.099598,0.794547,0.099598,0.00010000
+3,1.533839,1.691924,0.441040,0.094757,0.823331,0.094757,0.00010000
+4,1.439287,1.640130,0.447292,0.079321,0.851750,0.079321,0.00010000
+5,1.423300,1.574749,0.443360,0.087528,0.844706,0.087528,0.00010000
+6,1.352130,1.554864,0.462256,0.100227,0.870391,0.100227,0.00010000
+7,1.311753,1.505091,0.460095,0.132966,0.872322,0.132966,0.00010000
+8,1.285457,1.499902,0.480972,0.128612,0.879632,0.128612,0.00010000
+9,1.219036,1.524750,0.464430,0.096741,0.876620,0.096741,0.00010000
+10,1.177963,1.463031,0.468883,0.086387,0.891118,0.086387,0.00010000
+11,1.142838,1.361557,0.509454,0.173092,0.911592,0.173092,0.00010000
+12,1.105199,1.361706,0.506310,0.171182,0.909911,0.171182,0.00010000
+13,1.078035,1.378207,0.492081,0.149404,0.912448,0.149404,0.00010000
+14,1.043892,1.330910,0.506870,0.183269,0.925771,0.183269,0.00010000
+15,1.088492,1.258465,0.523854,0.168543,0.956696,0.168543,0.00010000
+16,1.053251,1.226082,0.534858,0.226059,0.956686,0.226059,0.00010000
+17,0.995685,1.326605,0.534173,0.199941,0.940384,0.199941,0.00010000
+18,0.986123,1.313637,0.520848,0.167267,0.931300,0.167267,0.00010000
+19,0.928755,1.223967,0.551110,0.281574,0.944538,0.281574,0.00010000
+20,0.965269,1.260744,0.525334,0.190001,0.951868,0.190001,0.00010000
+
+--- outputs/metrics_3d.json ---
+{
+  "dataset_format": "msd_task01",
+  "label_mode": "binary",
+  "val": {
+    "dice_per_class": {
+      "background": 0.98722887346425,
+      "tumor": 0.016988756025741694
+    },
+    "mean_dice": 0.5021088147449959,
+    "foreground_mean_dice": 0.016988756025741694,
+    "dice_background": 0.98722887346425,
+    "dice_tumor": 0.016988756025741694,
+    "number_of_volumes": 97
+  },
+  "test": {
+    "dice_per_class": {
+      "background": 0.9879584555723229,
+      "tumor": 0.023572556937305846
+    },
+    "mean_dice": 0.5057655062548143,
+    "foreground_mean_dice": 0.023572556937305846,
+    "dice_background": 0.9879584555723229,
+    "dice_tumor": 0.023572556937305846,
+    "number_of_volumes": 49
+  },
+  "inference": {
+    "roi_size": [
+      96,
+      96,
+      96
+    ],
+    "overlap": 0.5,
+    "sw_batch_size": 2,
+    "include_background": true,
+    "ignore_empty_foreground": true,
+    "pred_rule": "sigmoid>0.5"
+  },
+  "git_commit": "94bbd68"
+}
+
+--- outputs/runs/.DS_Store ---
+(binary file, contents omitted)
+
+--- outputs/runs/20260111_145626/env.txt ---
+3.12.12
+torch==2.7.1+cu118
+monai==1.5.1
+
+--- outputs/runs/20260111_145626/events.out.tfevents.1768161388.gn-0007.542966.0 ---
+(binary file, contents omitted)
+
+--- outputs/runs/20260111_145626/git_commit.txt ---
+7addf7f
+
+--- outputs/runs/20260111_145626/gpu.txt ---
+GPU 0: Tesla V100-SXM2-16GB (UUID: GPU-2bf47ea5-f6c0-205c-03c6-eff3d127cbf0)
+
+--- outputs/runs/20260111_145626/metrics.csv ---
+epoch,train_loss,val_loss,val_mean_dice,val_foreground_dice,val_dice_background,val_dice_tumor,lr
+1,1.804618,1.809580,0.337177,0.069214,0.635595,0.069214,0.00010000
+2,1.647916,1.748115,0.419185,0.099598,0.794547,0.099598,0.00010000
+3,1.533839,1.691924,0.441040,0.094757,0.823331,0.094757,0.00010000
+4,1.439287,1.640130,0.447292,0.079321,0.851750,0.079321,0.00010000
+5,1.423300,1.574749,0.443360,0.087528,0.844706,0.087528,0.00010000
+6,1.352130,1.554864,0.462256,0.100227,0.870391,0.100227,0.00010000
+7,1.311753,1.505091,0.460095,0.132966,0.872322,0.132966,0.00010000
+8,1.285457,1.499902,0.480972,0.128612,0.879632,0.128612,0.00010000
+9,1.219036,1.524750,0.464430,0.096741,0.876620,0.096741,0.00010000
+10,1.177963,1.463031,0.468883,0.086387,0.891118,0.086387,0.00010000
+11,1.142838,1.361557,0.509454,0.173092,0.911592,0.173092,0.00010000
+12,1.105199,1.361706,0.506310,0.171182,0.909911,0.171182,0.00010000
+13,1.078035,1.378207,0.492081,0.149404,0.912448,0.149404,0.00010000
+14,1.043892,1.330910,0.506870,0.183269,0.925771,0.183269,0.00010000
+15,1.088492,1.258465,0.523854,0.168543,0.956696,0.168543,0.00010000
+16,1.053251,1.226082,0.534858,0.226059,0.956686,0.226059,0.00010000
+17,0.995685,1.326605,0.534173,0.199941,0.940384,0.199941,0.00010000
+18,0.986123,1.313637,0.520848,0.167267,0.931300,0.167267,0.00010000
+19,0.928755,1.223967,0.551110,0.281574,0.944538,0.281574,0.00010000
+20,0.965269,1.260744,0.525334,0.190001,0.951868,0.190001,0.00010000
+
+--- outputs/runs/20260111_145626/metrics_per_epoch.json ---
+[
+  {
+    "epoch": 1,
+    "train_loss": 1.804617980480194,
+    "val_loss": 1.809579575061798,
+    "val_mean_dice": 0.33717746257781983,
+    "val_foreground_dice": 0.06921386545582209,
+    "val_dice_per_class": [
+      0.635595155954361,
+      0.06921386545582209
+    ],
+    "val_dice_background": 0.635595155954361,
+    "val_dice_tumor": 0.06921386545582209,
+    "lr": 0.0001,
+    "ignore_empty_foreground": true,
+    "include_background": true,
+    "pred_rule": "argmax over softmax logits",
+    "class_names": [
+      "background",
+      "tumor"
+    ]
+  },
+  {
+    "epoch": 2,
+    "train_loss": 1.6479155039787292,
+    "val_loss": 1.7481150078773497,
+    "val_mean_dice": 0.4191851818561554,
+    "val_foreground_dice": 0.09959770811044356,
+    "val_dice_per_class": [
+      0.7945473730564118,
+      0.09959770811044356
+    ],
+    "val_dice_background": 0.7945473730564118,
+    "val_dice_tumor": 0.09959770811044356,
+    "lr": 0.0001,
+    "ignore_empty_foreground": true,
+    "include_background": true,
+    "pred_rule": "argmax over softmax logits",
+    "class_names": [
+      "background",
+      "tumor"
+    ]
+  },
+  {
+    "epoch": 3,
+    "train_loss": 1.5338392219543457,
+    "val_loss": 1.691923563480377,
+    "val_mean_dice": 0.4410399258136749,
+    "val_foreground_dice": 0.09475686833919157,
+    "val_dice_per_class": [
+      0.823330591917038,
+      0.09475686833919157
+    ],
+    "val_dice_background": 0.823330591917038,
+    "val_dice_tumor": 0.09475686833919157,
+    "lr": 0.0001,
+    "ignore_empty_foreground": true,
+    "include_background": true,
+    "pred_rule": "argmax over softmax logits",
+    "class_names": [
+      "background",
+      "tumor"
+    ]
+  },
+  {
+    "epoch": 4,
+    "train_loss": 1.439286849975586,
+    "val_loss": 1.6401302647590636,
+    "val_mean_dice": 0.44729161739349366,
+    "val_foreground_dice": 0.07932097819459025,
+    "val_dice_per_class": [
+      0.8517499053478241,
+      0.07932097819459025
+    ],
+    "val_dice_background": 0.8517499053478241,
+    "val_dice_tumor": 0.07932097819459025,
+    "lr": 0.0001,
+    "ignore_empty_foreground": true,
+    "include_background": true,
+    "pred_rule": "argmax over softmax logits",
+    "class_names": [
+      "background",
+      "tumor"
+    ]
+  },
+  {
+    "epoch": 5,
+    "train_loss": 1.4233003630638124,
+    "val_loss": 1.574749126434326,
+    "val_mean_dice": 0.44335984528064726,
+    "val_foreground_dice": 0.08752848583587063,
+    "val_dice_per_class": [
+      0.8447060132026672,
+      0.08752848583587063
+    ],
+    "val_dice_background": 0.8447060132026672,
+    "val_dice_tumor": 0.08752848583587063,
+    "lr": 0.0001,
+    "ignore_empty_foreground": true,
+    "include_background": true,
+    "pred_rule": "argmax over softmax logits",
+    "class_names": [
+      "background",
+      "tumor"
+    ]
+  },
+  {
+    "epoch": 6,
+    "train_loss": 1.35212952709198,
+    "val_loss": 1.5548641729354857,
+    "val_mean_dice": 0.46225647151470184,
+    "val_foreground_dice": 0.10022668323155678,
+    "val_dice_per_class": [
+      0.8703905320167542,
+      0.10022668323155678
+    ],
+    "val_dice_background": 0.8703905320167542,
+    "val_dice_tumor": 0.10022668323155678,
+    "lr": 0.0001,
+    "ignore_empty_foreground": true,
+    "include_background": true,
+    "pred_rule": "argmax over softmax logits",
+    "class_names": [
+      "background",
+      "tumor"
+    ]
+  },
+  {
+    "epoch": 7,
+    "train_loss": 1.3117529258728027,
+    "val_loss": 1.5050909090042115,
+    "val_mean_dice": 0.46009465992450715,
+    "val_foreground_dice": 0.1329657798907849,
+    "val_dice_per_class": [
+      0.8723216390609742,
+      0.1329657798907849
+    ],
+    "val_dice_background": 0.8723216390609742,
+    "val_dice_tumor": 0.1329657798907849,
+    "lr": 0.0001,
+    "ignore_empty_foreground": true,
+    "include_background": true,
+    "pred_rule": "argmax over softmax logits",
+    "class_names": [
+      "background",
+      "tumor"
+    ]
+  },
+  {
+    "epoch": 8,
+    "train_loss": 1.2854572594165803,
+    "val_loss": 1.4999022197723388,
+    "val_mean_dice": 0.48097169160842895,
+    "val_foreground_dice": 0.12861225873894,
+    "val_dice_per_class": [
+      0.8796315395832062,
+      0.12861225873894
+    ],
+    "val_dice_background": 0.8796315395832062,
+    "val_dice_tumor": 0.12861225873894,
+    "lr": 0.0001,
+    "ignore_empty_foreground": true,
+    "include_background": true,
+    "pred_rule": "argmax over softmax logits",
+    "class_names": [
+      "background",
+      "tumor"
+    ]
+  },
+  {
+    "epoch": 9,
+    "train_loss": 1.2190356347560882,
+    "val_loss": 1.5247501564025878,
+    "val_mean_dice": 0.4644301176071167,
+    "val_foreground_dice": 0.0967411597294914,
+    "val_dice_per_class": [
+      0.8766200077533722,
+      0.0967411597294914
+    ],
+    "val_dice_background": 0.8766200077533722,
+    "val_dice_tumor": 0.0967411597294914,
+    "lr": 0.0001,
+    "ignore_empty_foreground": true,
+    "include_background": true,
+    "pred_rule": "argmax over softmax logits",
+    "class_names": [
+      "background",
+      "tumor"
+    ]
+  },
+  {
+    "epoch": 10,
+    "train_loss": 1.1779632704257965,
+    "val_loss": 1.4630306625366212,
+    "val_mean_dice": 0.46888339042663574,
+    "val_foreground_dice": 0.08638708391420853,
+    "val_dice_per_class": [
+      0.891117752790451,
+      0.08638708391420853
+    ],
+    "val_dice_background": 0.891117752790451,
+    "val_dice_tumor": 0.08638708391420853,
+    "lr": 0.0001,
+    "ignore_empty_foreground": true,
+    "include_background": true,
+    "pred_rule": "argmax over softmax logits",
+    "class_names": [
+      "background",
+      "tumor"
+    ]
+  },
+  {
+    "epoch": 11,
+    "train_loss": 1.142837985277176,
+    "val_loss": 1.3615574550628662,
+    "val_mean_dice": 0.5094544798135757,
+    "val_foreground_dice": 0.1730924388374983,
+    "val_dice_per_class": [
+      0.9115916478633881,
+      0.1730924388374983
+    ],
+    "val_dice_background": 0.9115916478633881,
+    "val_dice_tumor": 0.1730924388374983,
+    "lr": 0.0001,
+    "ignore_empty_foreground": true,
+    "include_background": true,
+    "pred_rule": "argmax over softmax logits",
+    "class_names": [
+      "background",
+      "tumor"
+    ]
+  },
+  {
+    "epoch": 12,
+    "train_loss": 1.1051985955238341,
+    "val_loss": 1.361706383228302,
+    "val_mean_dice": 0.5063101214170456,
+    "val_foreground_dice": 0.17118202200290397,
+    "val_dice_per_class": [
+      0.9099110269546509,
+      0.17118202200290397
+    ],
+    "val_dice_background": 0.9099110269546509,
+    "val_dice_tumor": 0.17118202200290397,
+    "lr": 0.0001,
+    "ignore_empty_foreground": true,
+    "include_background": true,
+    "pred_rule": "argmax over softmax logits",
+    "class_names": [
+      "background",
+      "tumor"
+    ]
+  },
+  {
+    "epoch": 13,
+    "train_loss": 1.07803541970253,
+    "val_loss": 1.3782066988945008,
+    "val_mean_dice": 0.49208119332790373,
+    "val_foreground_dice": 0.14940423866695104,
+    "val_dice_per_class": [
+      0.9124483513832092,
+      0.14940423866695104
+    ],
+    "val_dice_background": 0.9124483513832092,
+    "val_dice_tumor": 0.14940423866695104,
+    "lr": 0.0001,
+    "ignore_empty_foreground": true,
+    "include_background": true,
+    "pred_rule": "argmax over softmax logits",
+    "class_names": [
+      "background",
+      "tumor"
+    ]
+  },
+  {
+    "epoch": 14,
+    "train_loss": 1.0438917350769044,
+    "val_loss": 1.330910118818283,
+    "val_mean_dice": 0.5068700182437896,
+    "val_foreground_dice": 0.18326893295670743,
+    "val_dice_per_class": [
+      0.9257709491252899,
+      0.18326893295670743
+    ],
+    "val_dice_background": 0.9257709491252899,
+    "val_dice_tumor": 0.18326893295670743,
+    "lr": 0.0001,
+    "ignore_empty_foreground": true,
+    "include_background": true,
+    "pred_rule": "argmax over softmax logits",
+    "class_names": [
+      "background",
+      "tumor"
+    ]
+  },
+  {
+    "epoch": 15,
+    "train_loss": 1.0884918804168702,
+    "val_loss": 1.2584649181365968,
+    "val_mean_dice": 0.5238544768095017,
+    "val_foreground_dice": 0.16854306785346665,
+    "val_dice_per_class": [
+      0.956695692539215,
+      0.16854306785346665
+    ],
+    "val_dice_background": 0.956695692539215,
+    "val_dice_tumor": 0.16854306785346665,
+    "lr": 0.0001,
+    "ignore_empty_foreground": true,
+    "include_background": true,
+    "pred_rule": "argmax over softmax logits",
+    "class_names": [
+      "background",
+      "tumor"
+    ]
+  },
+  {
+    "epoch": 16,
+    "train_loss": 1.0532509520053863,
+    "val_loss": 1.2260815334320068,
+    "val_mean_dice": 0.5348580300807952,
+    "val_foreground_dice": 0.22605915148786151,
+    "val_dice_per_class": [
+      0.9566864860057831,
+      0.22605915148786151
+    ],
+    "val_dice_background": 0.9566864860057831,
+    "val_dice_tumor": 0.22605915148786151,
+    "lr": 0.0001,
+    "ignore_empty_foreground": true,
+    "include_background": true,
+    "pred_rule": "argmax over softmax logits",
+    "class_names": [
+      "background",
+      "tumor"
+    ]
+  },
+  {
+    "epoch": 17,
+    "train_loss": 0.9956852023601532,
+    "val_loss": 1.3266047322750092,
+    "val_mean_dice": 0.534173054099083,
+    "val_foreground_dice": 0.19994129647966474,
+    "val_dice_per_class": [
+      0.9403836798667907,
+      0.19994129647966474
+    ],
+    "val_dice_background": 0.9403836798667907,
+    "val_dice_tumor": 0.19994129647966474,
+    "lr": 0.0001,
+    "ignore_empty_foreground": true,
+    "include_background": true,
+    "pred_rule": "argmax over softmax logits",
+    "class_names": [
+      "background",
+      "tumor"
+    ]
+  },
+  {
+    "epoch": 18,
+    "train_loss": 0.9861232256889343,
+    "val_loss": 1.3136370587348938,
+    "val_mean_dice": 0.5208478999137879,
+    "val_foreground_dice": 0.16726681167992039,
+    "val_dice_per_class": [
+      0.9312997055053711,
+      0.16726681167992039
+    ],
+    "val_dice_background": 0.9312997055053711,
+    "val_dice_tumor": 0.16726681167992039,
+    "lr": 0.0001,
+    "ignore_empty_foreground": true,
+    "include_background": true,
+    "pred_rule": "argmax over softmax logits",
+    "class_names": [
+      "background",
+      "tumor"
+    ]
+  },
+  {
+    "epoch": 19,
+    "train_loss": 0.9287551293373107,
+    "val_loss": 1.223967468738556,
+    "val_mean_dice": 0.5511100041866303,
+    "val_foreground_dice": 0.2815742690649391,
+    "val_dice_per_class": [
+      0.944538414478302,
+      0.2815742690649391
+    ],
+    "val_dice_background": 0.944538414478302,
+    "val_dice_tumor": 0.2815742690649391,
+    "lr": 0.0001,
+    "ignore_empty_foreground": true,
+    "include_background": true,
+    "pred_rule": "argmax over softmax logits",
+    "class_names": [
+      "background",
+      "tumor"
+    ]
+  },
+  {
+    "epoch": 20,
+    "train_loss": 0.9652687962055206,
+    "val_loss": 1.2607442045211792,
+    "val_mean_dice": 0.5253342199325561,
+    "val_foreground_dice": 0.1900008580129137,
+    "val_dice_per_class": [
+      0.9518679964542389,
+      0.1900008580129137
+    ],
+    "val_dice_background": 0.9518679964542389,
+    "val_dice_tumor": 0.1900008580129137,
+    "lr": 0.0001,
+    "ignore_empty_foreground": true,
+    "include_background": true,
+    "pred_rule": "argmax over softmax logits",
+    "class_names": [
+      "background",
+      "tumor"
+    ]
+  }
+]
+
+--- outputs/runs/20260111_145626/train_config_resolved.yaml ---
+data:
+  root: ./data/raw/msd_task01/Task01_BrainTumour
+  train_ratio: 0.7
+  val_ratio: 0.2
+  seed: 42
+  list_files:
+    train: null
+    val: null
+    test: null
+  label_mode: binary
+  class_names:
+  - background
+  - tumor
+  roi_size:
+  - 96
+  - 96
+  - 96
+  pos_ratio: 0.9
+  max_pos_attempts: 10
+  min_pos_voxel_frac: 0.01
+  percentiles:
+  - 0.5
+  - 99.5
+model:
+  in_channels: 4
+  channels:
+  - 16
+  - 32
+  - 64
+  - 128
+  - 128
+  strides:
+  - 2
+  - 2
+  - 2
+  - 2
+  num_res_units: 1
+  norm: instance
+training:
+  batch_size: 1
+  learning_rate: 0.0001
+  max_epochs: 20
+  num_workers: 8
+  seed: 42
+  deterministic: false
+  output_dir: ./outputs/runs
+  limit_train_batches: 250
+  limit_val_batches: 50
+  log_interval: 20
+  vis_interval: 10
+  max_vis_cases: 3
+  debug_shapes: false
+  ignore_empty_foreground: true
+  log_sanity_steps: 50
+  prediction_threshold: 0.5
+  pos_weight: 5.0
+inference:
+  roi_size:
+  - 96
+  - 96
+  - 96
+  overlap: 0.5
+  sw_batch_size: 2
+  ignore_empty_foreground: true
+
+--- outputs/runs/20260111_145626/vis/epoch_10/case_0_gt.png ---
+(binary file, contents omitted)
+
+--- outputs/runs/20260111_145626/vis/epoch_10/case_0_input.png ---
+(binary file, contents omitted)
+
+--- outputs/runs/20260111_145626/vis/epoch_10/case_0_overlay.png ---
+(binary file, contents omitted)
+
+--- outputs/runs/20260111_145626/vis/epoch_10/case_0_pred.png ---
+(binary file, contents omitted)
+
+--- outputs/runs/20260111_145626/vis/epoch_10/case_1_gt.png ---
+(binary file, contents omitted)
+
+--- outputs/runs/20260111_145626/vis/epoch_10/case_1_input.png ---
+(binary file, contents omitted)
+
+--- outputs/runs/20260111_145626/vis/epoch_10/case_1_overlay.png ---
+(binary file, contents omitted)
+
+--- outputs/runs/20260111_145626/vis/epoch_10/case_1_pred.png ---
+(binary file, contents omitted)
+
+--- outputs/runs/20260111_145626/vis/epoch_10/case_2_gt.png ---
+(binary file, contents omitted)
+
+--- outputs/runs/20260111_145626/vis/epoch_10/case_2_input.png ---
+(binary file, contents omitted)
+
+--- outputs/runs/20260111_145626/vis/epoch_10/case_2_overlay.png ---
+(binary file, contents omitted)
+
+--- outputs/runs/20260111_145626/vis/epoch_10/case_2_pred.png ---
+(binary file, contents omitted)
+
+--- outputs/runs/20260111_145626/vis/epoch_20/case_0_gt.png ---
+(binary file, contents omitted)
+
+--- outputs/runs/20260111_145626/vis/epoch_20/case_0_input.png ---
+(binary file, contents omitted)
+
+--- outputs/runs/20260111_145626/vis/epoch_20/case_0_overlay.png ---
+(binary file, contents omitted)
+
+--- outputs/runs/20260111_145626/vis/epoch_20/case_0_pred.png ---
+(binary file, contents omitted)
+
+--- outputs/runs/20260111_145626/vis/epoch_20/case_1_gt.png ---
+(binary file, contents omitted)
+
+--- outputs/runs/20260111_145626/vis/epoch_20/case_1_input.png ---
+(binary file, contents omitted)
+
+--- outputs/runs/20260111_145626/vis/epoch_20/case_1_overlay.png ---
+(binary file, contents omitted)
+
+--- outputs/runs/20260111_145626/vis/epoch_20/case_1_pred.png ---
+(binary file, contents omitted)
+
+--- outputs/runs/20260111_145626/vis/epoch_20/case_2_gt.png ---
+(binary file, contents omitted)
+
+--- outputs/runs/20260111_145626/vis/epoch_20/case_2_input.png ---
+(binary file, contents omitted)
+
+--- outputs/runs/20260111_145626/vis/epoch_20/case_2_overlay.png ---
+(binary file, contents omitted)
+
+--- outputs/runs/20260111_145626/vis/epoch_20/case_2_pred.png ---
 (binary file, contents omitted)
 
 --- requirements-3d.txt ---
@@ -2220,11 +3671,14 @@ class MSDTask01Dataset3D(torch.utils.data.Dataset):
         label = label.astype(np.int64)
         if label.ndim != 3:
             raise ValueError(f"Expected 3D label volume, got shape {label.shape}")
-        label = np.transpose(label, (2, 0, 1))
-        if label.shape != image.shape[1:]:
-            raise ValueError(
-                f"Label shape {label.shape} does not match image spatial shape {image.shape[1:]}"
-            )
+        if label.shape == image.shape[1:]:
+            pass
+        else:
+            label = np.transpose(label, (2, 0, 1))
+            if label.shape != image.shape[1:]:
+                raise ValueError(
+                    f"Label shape {label.shape} does not match image spatial shape {image.shape[1:]}"
+                )
 
         if self.label_mode == "binary":
             label = (label > 0).astype(np.int64)
@@ -2726,6 +4180,10 @@ def _ensure_5d(tensor: torch.Tensor, name: str) -> torch.Tensor:
 def _compute_dice(pred: torch.Tensor, target: torch.Tensor, include_background: bool) -> torch.Tensor:
     pred = _ensure_5d(pred, "pred")
     target = _ensure_5d(target, "target")
+    if target.shape[2:] != pred.shape[2:]:
+        raise ValueError(
+            f"Spatial mismatch: pred {tuple(pred.shape)} vs target {tuple(target.shape)}"
+        )
     if target.shape[1] != pred.shape[1]:
         target = torch.argmax(target, dim=1, keepdim=True)
         target = torch.nn.functional.one_hot(
@@ -2740,7 +4198,27 @@ def _compute_dice(pred: torch.Tensor, target: torch.Tensor, include_background: 
     intersection = (pred * target).sum(dim=(2, 3, 4))
     denom = pred.sum(dim=(2, 3, 4)) + target.sum(dim=(2, 3, 4))
     dice = torch.where(denom > 0, (2.0 * intersection) / denom, torch.ones_like(denom))
-    return dice.mean(dim=0)
+    return dice
+
+
+def _align_label_spatial(label: torch.Tensor, pred: torch.Tensor) -> torch.Tensor:
+    if label.shape[2:] == pred.shape[2:]:
+        return label
+    perms = [
+        (2, 3, 4),
+        (2, 4, 3),
+        (3, 2, 4),
+        (3, 4, 2),
+        (4, 2, 3),
+        (4, 3, 2),
+    ]
+    for perm in perms:
+        candidate = label.permute(0, 1, *perm)
+        if candidate.shape[2:] == pred.shape[2:]:
+            return candidate
+    raise ValueError(
+        f"Unable to align label spatial dims {tuple(label.shape)} to pred {tuple(pred.shape)}"
+    )
 
 
 def _foreground_mean(dice_per_class: List[float]) -> float:
@@ -2825,8 +4303,9 @@ def evaluate_split(
                 pred = torch.nn.functional.one_hot(
                     pred_labels.squeeze(1), num_classes=num_classes
                 ).permute(0, 4, 1, 2, 3).float()
+            label = _align_label_spatial(label, pred)
             dice = _compute_dice(pred, label, include_background=True)
-            dice_scores.append(dice.cpu().numpy())
+            dice_scores.append(dice.mean(dim=0).cpu().numpy())
             batch_sum, batch_count = _accumulate_dice(dice, label, num_classes, ignore_empty_foreground)
             dice_sum += batch_sum
             dice_count += batch_count
